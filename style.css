@@ -181,7 +181,7 @@ a:hover {
 /* Hero Section */
 .hero {
     padding: calc(var(--header-height) + 4rem) 0 4rem;
-    background: linear-gradient(135deg, #5fada300 0%, #9091a4 100%);
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 
 .hero-grid {
