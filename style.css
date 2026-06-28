@@ -30,7 +30,46 @@ body {
     font-family: var(--font-family);
     color: var(--text-color);
     line-height: 1.6;
-    background-color: var(--bg-color);
+    background-color: var(--bg-color);body {
+  background: linear-gradient(135deg, #f8fafc, #e0e7ff, #f3e8ff);
+  font-family: 'Poppins', sans-serif;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+}
+
+.button-primary {
+  background: linear-gradient(90deg, #4f46e5, #8b5cf6);
+  color: white;
+  border-radius: 10px;
+}
+
+.button-secondary {
+  background: #ffffff;
+  border: 1px solid #c7d2fe;
+  color: #4f46e5;
+}
+
+.image-box {
+  border-radius: 20px;
+  border: 1px solid #e0e7ff;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.2);
+}
+
+.owner-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+}
 }
 
 /* Container */
