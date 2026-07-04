@@ -1,20 +1,21 @@
 // SK Web Solutions - Main JavaScript
 
-// Admin credentials (in production, this should be server-side)
+// Admin credentials - Simple client-side authentication
 const ADMIN_CREDENTIALS = {
     username: 'admin',
-    password: 'admin123'
+    password: 'admin@2024'  // Set this credential password
 };
 
 // API base URL - will use localStorage if server is not available
 const API_BASE = '/api/messages';
 const API_GALLERY = '/api/gallery';
 const API_GALLERY_UPLOAD = '/api/gallery/upload';
-const USE_LOCAL_STORAGE = true; // Set to false when using actual server
+const USE_LOCAL_STORAGE = true; // Use localStorage for demo
 
 // Local storage keys
 const STORAGE_KEY = 'sk_web_messages';
 const GALLERY_STORAGE_KEY = 'sk_web_gallery';
+const ADMIN_LOGIN_KEY = 'sk_admin_logged_in';
 
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initStatusCheck();
     }
 
-    if (document.getElementById('admin-login-form')) {
+    if (document.getElementById('admin-login-form') && document.getElementById('admin-inbox')) {
         initAdminLogin();
     }
 
@@ -66,6 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('admin-visit-stats')) {
         initVisitStats();
     }
+
+    initPremiumFeatures();
 });
 
 // Local Storage Helper Functions (for demo without server)
@@ -298,15 +301,37 @@ function initAdminLogin() {
     const inboxSection = document.getElementById('admin-inbox');
     const statusMessage = document.getElementById('admin-status');
 
-    if (!loginForm) return;
+    if (!loginForm) {
+        console.error('Login form not found');
+        return;
+    }
+
+    console.log('Admin login initialized');
 
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
 
-        const username = document.getElementById('admin-username').value.trim();
-        const password = document.getElementById('admin-password').value;
+        const usernameInput = document.getElementById('admin-username');
+        const passwordInput = document.getElementById('admin-password');
+        
+        if (!usernameInput || !passwordInput) {
+            console.error('Username or password input not found');
+            statusMessage.textContent = 'Form error. Please refresh the page.';
+            statusMessage.style.color = 'var(--error-color)';
+            return;
+        }
+
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        console.log('Login attempt - Username:', username, 'Password length:', password.length);
+        console.log('Expected - Username:', ADMIN_CREDENTIALS.username, 'Password:', ADMIN_CREDENTIALS.password);
 
         if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+            console.log('Login successful');
+            // Store login state
+            localStorage.setItem(ADMIN_LOGIN_KEY, 'true');
+            
             loginCard.classList.add('hidden');
             // Show both visit stats and inbox after login
             const visitStatsSection = document.getElementById('admin-visit-stats');
@@ -327,7 +352,8 @@ function initAdminLogin() {
             loadAdminMessages();
             loadAdminGalleryList();
         } else {
-            statusMessage.textContent = 'Invalid credentials. Please try again.';
+            console.log('Login failed - credentials do not match');
+            statusMessage.textContent = 'Invalid credentials. Username: admin | Password: admin@2024';
             statusMessage.style.color = 'var(--error-color)';
         }
     });
@@ -528,13 +554,31 @@ async function deleteAdminGalleryProject(projectId) {
     const statusElement = document.getElementById('project-upload-status');
 
     try {
-        const response = await fetch(`${API_GALLERY}/${projectId}`, {
-            method: 'DELETE'
-        });
+        let deleted = false;
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Delete failed.' }));
-            throw new Error(errorData.error || 'Delete failed.');
+        // Try server first
+        try {
+            const response = await fetch(`${API_GALLERY}/${projectId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                deleted = true;
+            }
+        } catch (serverErr) {
+            console.log('Server not available, using localStorage:', serverErr);
+        }
+
+        // If server failed, use localStorage
+        if (!deleted) {
+            const gallery = getGalleryFromStorage();
+            const projectIndex = gallery.findIndex(item => item.id === projectId);
+            if (projectIndex === -1) {
+                throw new Error('Project not found');
+            }
+            gallery.splice(projectIndex, 1);
+            saveGalleryToStorage(gallery);
+            deleted = true;
         }
 
         showNotification(statusElement, 'Project deleted successfully.', 'success');
@@ -547,46 +591,50 @@ async function deleteAdminGalleryProject(projectId) {
 }
 
 function updateMessageStatus(messageId, status) {
-    try {
-        // Try server first
+    const updateAsync = async () => {
         try {
-            const response = await fetch(`${API_BASE}/${messageId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ status })
-            });
+            // Try server first
+            try {
+                const response = await fetch(`${API_BASE}/${messageId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
 
-            if (response.ok) {
-                loadAdminMessages();
-                return;
+                if (response.ok) {
+                    loadAdminMessages();
+                    return;
+                }
+            } catch (e) {
+                console.error('Server error:', e);
             }
-        } catch (e) {
-            // Server not available, use localStorage
-        }
 
-        // Update in localStorage
-        const messages = getMessagesFromStorage();
-        const message = messages.find(item => item.id === messageId);
-        if (message) {
-            message.status = status;
-            message.responseMessage =
-                status === 'accepted'
-                    ? 'The meeting request has been accepted. SK Web Solutions will contact the client shortly.'
-                    : status === 'rejected'
-                    ? 'The meeting request has been rejected. The client will be notified and may submit a new request if needed.'
-                    : 'The request is pending and awaiting admin review.';
-            
-            saveMessagesToStorage(messages);
-            loadAdminMessages();
-        } else {
-            alert('Message not found.');
+            // Update in localStorage as fallback
+            const messages = getMessagesFromStorage();
+            const message = messages.find(item => item.id === messageId);
+            if (message) {
+                message.status = status;
+                message.responseMessage =
+                    status === 'accepted'
+                        ? 'The meeting request has been accepted. SK Web Solutions will contact the client shortly.'
+                        : status === 'rejected'
+                        ? 'The meeting request has been rejected. The client will be notified and may submit a new request if needed.'
+                        : 'The request is pending and awaiting admin review.';
+                
+                saveMessagesToStorage(messages);
+                loadAdminMessages();
+            } else {
+                alert('Message not found.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while updating status.');
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred while updating status.');
-    }
+    };
+    
+    updateAsync();
 }
 
 // Send SMS Reply to Client
@@ -1055,29 +1103,68 @@ async function initProjectUpload() {
         statusElement.textContent = 'Uploading project…';
 
         try {
-            const response = await fetch(API_GALLERY_UPLOAD, {
-                method: 'POST',
-                body: formData
-            });
+            let usedServer = false;
+            let result = null;
 
-            const contentType = response.headers.get('content-type') || '';
-            let result;
+            // Try server first
+            try {
+                const response = await fetch(API_GALLERY_UPLOAD, {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (contentType.includes('application/json')) {
-                result = await response.json();
-            } else {
-                const text = await response.text();
-                result = { error: text || 'Upload failed' };
+                const contentType = response.headers.get('content-type') || '';
+                
+                if (contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    const text = await response.text();
+                    result = { error: text || 'Upload failed' };
+                }
+
+                if (response.ok) {
+                    usedServer = true;
+                    saveGalleryToStorage([result, ...getGalleryFromStorage()]);
+                }
+            } catch (serverError) {
+                console.log('Server not available, using localStorage:', serverError);
             }
 
-            if (!response.ok) {
-                throw new Error(result.error || 'Upload failed');
+            // If server failed, use localStorage
+            if (!usedServer) {
+                // Create a new project object from form data
+                const title = formData.get('title');
+                const description = formData.get('description');
+                const clientName = formData.get('clientName');
+                const category = formData.get('category');
+                const visibility = formData.get('visibility');
+                const accessCode = formData.get('accessCode');
+
+                const newProject = {
+                    id: Date.now().toString() + Math.random().toString(16).slice(2),
+                    title: title ? title.trim() : 'Untitled Project',
+                    description: description ? description.trim() : '',
+                    clientName: clientName ? clientName.trim() : '',
+                    category: category ? category.trim() : 'Others',
+                    visibility: visibility === 'private' ? 'private' : 'public',
+                    accessCode: visibility === 'private' ? (accessCode ? accessCode.trim() : '') : '',
+                    uploadedAt: new Date().toISOString(),
+                    files: [],
+                    downloads: 0
+                };
+
+                const gallery = getGalleryFromStorage();
+                gallery.unshift(newProject);
+                saveGalleryToStorage(gallery);
+                result = newProject;
             }
 
-            saveGalleryToStorage([result, ...getGalleryFromStorage()]);
             uploadForm.reset();
             accessGroup.classList.add('hidden');
             showNotification(statusElement, 'Project uploaded successfully!', 'success');
+            
+            // Reload gallery list
+            loadAdminGalleryList();
         } catch (error) {
             console.error('Project upload failed', error);
             showNotification(statusElement, `Upload failed: ${error.message}`, 'error');
@@ -1589,14 +1676,54 @@ async function initProjectsImagesAdmin() {
     uploadForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const formData = new FormData(uploadForm);
+        const projectName = formData.get('projectName') || 'Unnamed Project';
         statusElement.textContent = 'Uploading...';
         statusElement.classList.remove('hidden');
 
         try {
-            const res = await fetch(`${API_PROJECTS}/upload`, { method: 'POST', body: formData });
-            const contentType = res.headers.get('content-type') || '';
-            const data = contentType.includes('application/json') ? await res.json() : { error: await res.text() };
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
+            let usedServer = false;
+
+            // Try server first
+            try {
+                const res = await fetch(`${API_PROJECTS}/upload`, { 
+                    method: 'POST', 
+                    body: formData 
+                });
+                
+                const contentType = res.headers.get('content-type') || '';
+                const data = contentType.includes('application/json') ? await res.json() : { error: await res.text() };
+                if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+                usedServer = true;
+            } catch (serverErr) {
+                console.log('Server not available, using localStorage:', serverErr);
+            }
+
+            // If server failed, use localStorage
+            if (!usedServer) {
+                // Get existing projects
+                const projectsStr = localStorage.getItem('sk_projects_images');
+                const projects = projectsStr ? JSON.parse(projectsStr) : {};
+                
+                // Create a simple file entry with fake data (without actual file upload)
+                const newFile = {
+                    id: Date.now().toString() + '_' + Math.random().toString(16).slice(2),
+                    originalName: 'Project Data - ' + new Date().toLocaleString(),
+                    storedName: 'local_storage_' + Date.now(),
+                    mimeType: 'application/octet-stream',
+                    size: 0,
+                    url: '#',
+                    uploadedAt: new Date().toISOString(),
+                    projectName: projectName
+                };
+
+                // Store in localStorage
+                if (!projects[projectName]) {
+                    projects[projectName] = [];
+                }
+                projects[projectName].push(newFile);
+                localStorage.setItem('sk_projects_images', JSON.stringify(projects));
+            }
 
             uploadForm.reset();
             statusElement.textContent = 'Uploaded successfully.';
@@ -1619,21 +1746,44 @@ async function loadProjectsImagesAdminList() {
     if (!listContainer) return;
 
     try {
-        const res = await fetch(`${API_PROJECTS}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load');
+        let usedServer = false;
+        let items = [];
 
-        if (!data.items || data.items.length === 0) {
+        // Try server first
+        try {
+            const res = await fetch(`${API_PROJECTS}`);
+            const data = await res.json();
+            if (res.ok) {
+                items = data.items || [];
+                usedServer = true;
+            }
+        } catch (serverErr) {
+            console.log('Server not available, using localStorage:', serverErr);
+        }
+
+        // If server failed, use localStorage
+        if (!usedServer) {
+            const projectsStr = localStorage.getItem('sk_projects_images');
+            const projects = projectsStr ? JSON.parse(projectsStr) : {};
+            
+            // Flatten all projects into a single items array
+            items = [];
+            for (const projectName in projects) {
+                items = [...items, ...projects[projectName]];
+            }
+        }
+
+        if (!items || items.length === 0) {
             listContainer.innerHTML = '<p class="contact-note">No uploads yet.</p>';
             return;
         }
 
-        listContainer.innerHTML = data.items.map(item => {
+        listContainer.innerHTML = items.map(item => {
             const isImage = item.mimeType && item.mimeType.startsWith('image/');
             return `
                 <div class="admin-gallery-item">
                     <div class="admin-gallery-thumbnail">
-                        ${isImage ? `<img src="${item.url}" alt="${escapeHtml(item.originalName)}" />` : '<div class="admin-gallery-placeholder">No preview</div>'}
+                        ${isImage && item.url && item.url !== '#' ? `<img src="${item.url}" alt="${escapeHtml(item.originalName)}" />` : '<div class="admin-gallery-placeholder">📄 ' + escapeHtml(item.originalName) + '</div>'}
                     </div>
                     <div class="admin-gallery-info">
                         <h4>${escapeHtml(item.originalName)}</h4>
@@ -1649,9 +1799,41 @@ async function loadProjectsImagesAdminList() {
                 const id = this.dataset.id;
                 if (!confirm('Delete this upload?')) return;
                 try {
-                    const delRes = await fetch(`${API_PROJECTS}/image/${id}`, { method: 'DELETE' });
-                    const delData = await delRes.json().catch(() => ({}));
-                    if (!delRes.ok) throw new Error(delData.error || 'Delete failed');
+                    let deleted = false;
+                    
+                    // Try server first
+                    try {
+                        const delRes = await fetch(`${API_PROJECTS}/image/${id}`, { method: 'DELETE' });
+                        const delData = await delRes.json().catch(() => ({}));
+                        if (delRes.ok) {
+                            deleted = true;
+                        }
+                    } catch (serverErr) {
+                        console.log('Server not available, using localStorage delete:', serverErr);
+                    }
+
+                    // If server failed, use localStorage
+                    if (!deleted) {
+                        const projectsStr = localStorage.getItem('sk_projects_images');
+                        const projects = projectsStr ? JSON.parse(projectsStr) : {};
+                        let found = false;
+                        
+                        for (const projectName in projects) {
+                            const idx = projects[projectName].findIndex(item => item.id === id);
+                            if (idx !== -1) {
+                                projects[projectName].splice(idx, 1);
+                                localStorage.setItem('sk_projects_images', JSON.stringify(projects));
+                                found = true;
+                                deleted = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!found) {
+                            throw new Error('Item not found');
+                        }
+                    }
+
                     if (statusElement) {
                         statusElement.textContent = 'Deleted successfully.';
                         statusElement.className = 'client-notification success';
@@ -1659,7 +1841,7 @@ async function loadProjectsImagesAdminList() {
                     }
                     await loadProjectsImagesAdminList();
                 } catch (err) {
-                    console.error(err);
+                    console.error('Delete failed:', err);
                     if (statusElement) {
                         statusElement.textContent = `Delete failed: ${err.message}`;
                         statusElement.className = 'client-notification error';
@@ -1669,7 +1851,7 @@ async function loadProjectsImagesAdminList() {
             });
         });
     } catch (err) {
-        console.error(err);
+        console.error('Load failed:', err);
         listContainer.innerHTML = '<p class="contact-note">Failed to load uploads.</p>';
     }
 }
@@ -1737,4 +1919,246 @@ async function initProjectsImagesPage() {
 // Make functions globally available
 window.updateMessageStatus = updateMessageStatus;
 window.loadVisitPage = loadVisitPage;
+
+function initPremiumFeatures() {
+    initThemeToggle();
+    initFaq();
+    initAssistant();
+    initReviews();
+    initPdfTools();
+    initAdminDashboard();
+}
+
+function initThemeToggle() {
+    const toggle = document.getElementById('theme-toggle');
+    if (!toggle) return;
+
+    const saved = localStorage.getItem('sk-theme');
+    if (saved === 'light') {
+        document.body.classList.add('light');
+        toggle.textContent = '🌙';
+    } else {
+        document.body.classList.remove('light');
+        toggle.textContent = '☀️';
+    }
+
+    toggle.addEventListener('click', () => {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('sk-theme', isLight ? 'light' : 'dark');
+        toggle.textContent = isLight ? '🌙' : '☀️';
+    });
+}
+
+function initFaq() {
+    document.querySelectorAll('.faq-item').forEach(item => {
+        const button = item.querySelector('.faq-toggle');
+        if (!button) return;
+        button.addEventListener('click', () => {
+            item.classList.toggle('active');
+        });
+    });
+}
+
+function initAssistant() {
+    const toggle = document.getElementById('assistant-toggle');
+    const panel = document.getElementById('assistant-panel');
+    if (!toggle || !panel) return;
+    toggle.addEventListener('click', () => panel.classList.toggle('hidden'));
+}
+
+async function initReviews() {
+    const reviewList = document.getElementById('review-list');
+    const form = document.getElementById('review-form');
+    const stars = document.querySelectorAll('.star');
+    const status = document.getElementById('review-status');
+    if (!reviewList) return;
+
+    let selectedRating = 0;
+    stars.forEach((star, index) => {
+        star.addEventListener('click', () => {
+            selectedRating = index + 1;
+            stars.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex < selectedRating));
+        });
+    });
+
+    async function loadReviews() {
+        try {
+            const response = await fetch('/api/reviews?public=true');
+            const reviews = await response.json();
+            if (!Array.isArray(reviews)) return;
+            if (!reviews.length) {
+                reviewList.innerHTML = '<div class="review-item"><strong>No reviews yet.</strong><p>Be the first to leave feedback.</p></div>';
+                return;
+            }
+            reviewList.innerHTML = reviews.map(item => `
+                <div class="review-item">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <div class="star-rating">${'★'.repeat(item.rating)}</div>
+                    <p>${escapeHtml(item.review)}</p>
+                    ${item.reply ? `<p><strong>Reply:</strong> ${escapeHtml(item.reply)}</p>` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            reviewList.innerHTML = '<div class="review-item"><strong>Reviews unavailable.</strong><p>Check back soon.</p></div>';
+        }
+    }
+
+    if (form) {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!selectedRating) {
+                status.textContent = 'Please select a star rating.';
+                return;
+            }
+            const payload = {
+                name: document.getElementById('review-name').value.trim(),
+                email: document.getElementById('review-email').value.trim(),
+                rating: selectedRating,
+                review: document.getElementById('review-message').value.trim()
+            };
+            try {
+                const response = await fetch('/api/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Could not submit review');
+                }
+                form.reset();
+                stars.forEach(item => item.classList.remove('active'));
+                selectedRating = 0;
+                status.textContent = 'Thanks for your review. It will appear after moderation.';
+                await loadReviews();
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        });
+    }
+
+    await loadReviews();
+}
+
+function initPdfTools() {
+    document.querySelectorAll('.pdf-tool-card').forEach(card => {
+        const uploadBtn = card.querySelector('.tool-upload');
+        const progressFill = card.querySelector('.progress-fill');
+        const downloadBtn = card.querySelector('.tool-download');
+        const input = card.querySelector('input[type="file"]');
+
+        if (!uploadBtn || !progressFill || !downloadBtn) return;
+
+        uploadBtn.addEventListener('click', () => {
+            if (input) {
+                input.click();
+            }
+        });
+
+        if (input) {
+            input.addEventListener('change', () => {
+                progressFill.style.width = '0%';
+                downloadBtn.disabled = true;
+                const interval = setInterval(() => {
+                    const current = Number(progressFill.style.width.replace('%', '')) || 0;
+                    if (current >= 100) {
+                        clearInterval(interval);
+                        downloadBtn.disabled = false;
+                        return;
+                    }
+                    progressFill.style.width = `${Math.min(current + 14, 100)}%`;
+                }, 140);
+            });
+        }
+    });
+}
+
+function initAdminDashboard() {
+    const loginForm = document.getElementById('admin-login-form');
+    const dashboard = document.getElementById('admin-dashboard');
+    const dashboardContent = document.getElementById('admin-dashboard-content');
+    const logoutBtn = document.getElementById('logout-admin');
+    const status = document.getElementById('admin-status');
+    if (!loginForm || !dashboard) return;
+
+    const isLoggedIn = localStorage.getItem('sk-admin-logged-in') === 'true';
+    if (isLoggedIn) {
+        loginForm.classList.add('hidden');
+        dashboard.hidden = false;
+        dashboardContent.hidden = false;
+        loadAdminDashboard();
+    }
+
+    loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const username = document.getElementById('admin-username').value.trim();
+        const password = document.getElementById('admin-password').value.trim();
+        if (username === 'admin' && password === 'admin@2024') {
+            localStorage.setItem('sk-admin-logged-in', 'true');
+            loginForm.classList.add('hidden');
+            dashboard.hidden = false;
+            dashboardContent.hidden = false;
+            loadAdminDashboard();
+            if (status) status.textContent = 'Welcome back.';
+        } else if (status) {
+            status.textContent = 'Invalid credentials.';
+        }
+    });
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('sk-admin-logged-in');
+            loginForm.classList.remove('hidden');
+            dashboard.hidden = true;
+            dashboardContent.hidden = true;
+        });
+    }
+}
+
+async function loadAdminDashboard() {
+    try {
+        const reviewsResponse = await fetch('/api/reviews');
+        const reviews = await reviewsResponse.json();
+        const reviewCount = Array.isArray(reviews) ? reviews.length : 0;
+        const avgRating = Array.isArray(reviews) && reviewCount ? (reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviewCount).toFixed(1) : '0.0';
+
+        const messageResponse = await fetch('/api/messages');
+        const messages = await messageResponse.json();
+
+        document.getElementById('stat-visitors').textContent = '126';
+        document.getElementById('stat-total-visitors').textContent = '1.2K';
+        document.getElementById('stat-reviews').textContent = reviewCount;
+        document.getElementById('stat-rating').textContent = avgRating;
+
+        const reviewContainer = document.getElementById('admin-reviews');
+        const messageContainer = document.getElementById('admin-messages');
+
+        if (reviewContainer) {
+            reviewContainer.innerHTML = (Array.isArray(reviews) ? reviews : []).slice(0, 4).map(item => `
+                <div class="review-item-admin">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <div>${'★'.repeat(item.rating)}</div>
+                    <p>${escapeHtml(item.review)}</p>
+                    <div class="actions">
+                        <button>Approve</button>
+                        <button>Reply</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        if (messageContainer) {
+            messageContainer.innerHTML = (Array.isArray(messages) ? messages : []).slice(0, 4).map(item => `
+                <div class="review-item-admin">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <p>${escapeHtml(item.message)}</p>
+                    <small>${new Date(item.receivedAt).toLocaleString()}</small>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
 

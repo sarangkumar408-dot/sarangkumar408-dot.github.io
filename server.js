@@ -11,16 +11,33 @@ const galleryDir = path.join(dataDir, 'gallery_files');
 const messagesFile = path.join(dataDir, 'messages.json');
 const visitsFile = path.join(dataDir, 'visits.json');
 const galleryFile = path.join(dataDir, 'gallery.json');
+const reviewsFile = path.join(dataDir, 'reviews.json');
 
 // Simple projects-images upload
 const projectsImagesDir = path.join(dataDir, 'projects_images');
 const projectsImagesFile = path.join(dataDir, 'projects_images.json');
 
+// Admin credentials (use environment variables in production)
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+// Simple in-memory session store (replace with database for production)
+const adminSessions = new Map();
 
 app.use(express.json());
 app.use('/gallery-files', express.static(galleryDir));
 app.use('/projects-images-files', express.static(projectsImagesDir));
 app.use(express.static(path.join(__dirname)));
+
+// Middleware to check admin authentication
+function requireAdmin(req, res, next) {
+  const sessionId = req.headers['x-admin-session'] || req.query.sessionId;
+  if (!sessionId || !adminSessions.has(sessionId)) {
+    return res.status(401).json({ error: 'Unauthorized. Please login first.' });
+  }
+  req.adminSessionId = sessionId;
+  next();
+}
 
 
 function ensureDataFile() {
@@ -35,6 +52,9 @@ function ensureDataFile() {
     }
     if (!fs.existsSync(galleryFile)) {
         fs.writeFileSync(galleryFile, '[]', 'utf8');
+    }
+    if (!fs.existsSync(reviewsFile)) {
+        fs.writeFileSync(reviewsFile, '[]', 'utf8');
     }
 
     // Projects-images storage
@@ -77,6 +97,39 @@ function writeProjectsImages(items) {
     fs.writeFileSync(projectsImagesFile, JSON.stringify(items, null, 2), 'utf8');
 }
 
+// Admin login endpoint
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+  
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+    adminSessions.set(sessionId, {
+      createdAt: Date.now(),
+      username: username
+    });
+    
+    // Auto-expire session after 24 hours
+    setTimeout(() => {
+      adminSessions.delete(sessionId);
+    }, 24 * 60 * 60 * 1000);
+    
+    res.json({ success: true, sessionId });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials.' });
+  }
+});
+
+// Admin logout endpoint
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  adminSessions.delete(req.adminSessionId);
+  res.json({ success: true });
+});
+
+
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -92,7 +145,7 @@ const upload = multer({
     limits: { fileSize: 300 * 1024 * 1024 }
 });
 
-app.post('/api/gallery/upload', upload.array('files', 30), (req, res) => {
+app.post('/api/gallery/upload', requireAdmin, upload.array('files', 30), (req, res) => {
 
     try {
         const { title, description, clientName, category, visibility, accessCode } = req.body;
@@ -218,7 +271,7 @@ const projectsImagesUpload = multer({
     }
 });
 
-app.post('/api/projects-images/upload', projectsImagesUpload.array('images', 50), (req, res) => {
+app.post('/api/projects-images/upload', requireAdmin, projectsImagesUpload.array('images', 50), (req, res) => {
     try {
         const { projectName } = req.body;
         const files = (req.files || []).map(file => ({
@@ -278,7 +331,7 @@ app.get('/api/projects-images/image/:id/download', (req, res) => {
     res.download(filePath, item.originalName);
 });
 
-app.delete('/api/projects-images/image/:id', (req, res) => {
+app.delete('/api/projects-images/image/:id', requireAdmin, (req, res) => {
     const items = readProjectsImages();
     const idx = items.findIndex(x => x.id === req.params.id);
     if (idx === -1) return res.status(404).json({ error: 'File not found.' });
@@ -293,7 +346,7 @@ app.delete('/api/projects-images/image/:id', (req, res) => {
     res.json({ success: true });
 });
 
-app.delete('/api/gallery/:projectId', (req, res) => {
+app.delete('/api/gallery/:projectId', requireAdmin, (req, res) => {
 
 
     const gallery = readGallery();
@@ -343,6 +396,21 @@ function readVisits() {
 function writeVisits(visits) {
   ensureDataFile();
   fs.writeFileSync(visitsFile, JSON.stringify(visits, null, 2), 'utf8');
+}
+
+function readReviews() {
+  ensureDataFile();
+  const raw = fs.readFileSync(reviewsFile, 'utf8');
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeReviews(reviews) {
+  ensureDataFile();
+  fs.writeFileSync(reviewsFile, JSON.stringify(reviews, null, 2), 'utf8');
 }
 
 // Simple hash function for anonymizing IPs
@@ -399,7 +467,7 @@ app.post('/api/messages', (req, res) => {
   res.status(201).json(newMessage);
 });
 
-app.put('/api/messages/:id/status', (req, res) => {
+app.put('/api/messages/:id/status', requireAdmin, (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const validStatuses = ['pending', 'accepted', 'rejected'];
@@ -426,13 +494,13 @@ app.put('/api/messages/:id/status', (req, res) => {
   res.json(message);
 });
 
-app.delete('/api/messages', (req, res) => {
+app.delete('/api/messages', requireAdmin, (req, res) => {
   writeMessages([]);
   res.json({ success: true });
 });
 
 // SMS Reply endpoint
-app.post('/api/messages/:id/sms', (req, res) => {
+app.post('/api/messages/:id/sms', requireAdmin, (req, res) => {
   const { id } = req.params;
   const { to, from, message, sentAt } = req.body;
 
@@ -461,7 +529,7 @@ app.post('/api/messages/:id/sms', (req, res) => {
 });
 
 // Visit tracking endpoints
-app.get('/api/visits', (req, res) => {
+app.get('/api/visits', requireAdmin, (req, res) => {
   const visits = readVisits();
   
   // Calculate statistics
@@ -535,7 +603,7 @@ app.post('/api/visits', (req, res) => {
   res.json({ success: true, duplicate: false, visit: newVisit });
 });
 
-app.get('/api/visits/history', (req, res) => {
+app.get('/api/visits/history', requireAdmin, (req, res) => {
   const visits = readVisits();
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 50;
@@ -570,8 +638,66 @@ app.get('/api/visits/history', (req, res) => {
   });
 });
 
-app.delete('/api/visits', (req, res) => {
+app.delete('/api/visits', requireAdmin, (req, res) => {
   writeVisits([]);
+  res.json({ success: true });
+});
+
+app.get('/api/reviews', (req, res) => {
+  const reviews = readReviews();
+  const publicOnly = req.query.public === 'true';
+  const visible = publicOnly ? reviews.filter(item => item.approved) : reviews;
+  res.json(visible);
+});
+
+app.post('/api/reviews', (req, res) => {
+  const { name, email, rating, review } = req.body;
+  if (!name || !review || !rating) {
+    return res.status(400).json({ error: 'Name, rating, and review are required.' });
+  }
+
+  const reviews = readReviews();
+  const entry = {
+    id: Date.now().toString() + Math.random().toString(16).slice(2),
+    name: name.trim(),
+    email: (email || '').trim(),
+    rating: Number(rating),
+    review: review.trim(),
+    approved: false,
+    createdAt: new Date().toISOString(),
+    reply: ''
+  };
+
+  reviews.unshift(entry);
+  writeReviews(reviews);
+  res.status(201).json(entry);
+});
+
+app.put('/api/reviews/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { approved, reply } = req.body;
+  const reviews = readReviews();
+  const item = reviews.find(entry => entry.id === id);
+  if (!item) {
+    return res.status(404).json({ error: 'Review not found.' });
+  }
+
+  if (typeof approved === 'boolean') item.approved = approved;
+  if (typeof reply === 'string') item.reply = reply;
+  writeReviews(reviews);
+  res.json(item);
+});
+
+app.delete('/api/reviews/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const reviews = readReviews();
+  const index = reviews.findIndex(entry => entry.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Review not found.' });
+  }
+
+  reviews.splice(index, 1);
+  writeReviews(reviews);
   res.json({ success: true });
 });
 

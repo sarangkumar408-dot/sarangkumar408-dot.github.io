@@ -3,234 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SK Web Solutions | High-Performance Frontend Development</title>
-    <link rel="stylesheet" href="Style.css">
+    <meta name="description" content="SK Web Solutions creates premium websites, SaaS products, and PDF tools for growth-focused businesses.">
+    <title>SK Web Solutions | Premium IT & SaaS Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="theme-dark">
     <header class="site-header">
         <div class="container header-inner">
-            <div class="brand"><span>SK</span> Web Solutions</div>
+            <a class="brand" href="index.html"><span>SK</span> Web Solutions</a>
             <nav class="main-nav" id="main-nav">
-                <a href="#overview">Home</a>
+                <a href="#home">Home</a>
                 <a href="#services">Services</a>
-                <a href="#work">Work</a>
-                
+                <a href="#portfolio">Portfolio</a>
+                <a href="pdf-tools.html">SK PDF Tools</a>
+                <a href="#reviews">Reviews</a>
                 <a href="#contact">Contact</a>
                 <a href="admin.html">Admin</a>
             </nav>
-            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
+            <div class="header-actions">
+                <input class="nav-search" type="search" placeholder="Search services">
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">☀️</button>
+                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
+            </div>
         </div>
     </header>
-    <main>
-        <section class="hero" id="overview">
+
+    <main id="home">
+        <section class="hero">
             <div class="container hero-grid">
-                <div class="hero-content">
-                    <p class="eyebrow">High-performance digital solutions 🌐</p>
-                    <h1> SK Web Solutions 🖥️</h1>
-                    <p class="hero-text">SK Web Solutions delivers responsive, brand-focused frontend development for startups, agencies, and established companies across Hyderabad and beyond.</p>
+                <div class="hero-content reveal">
+                    <p class="eyebrow">Premium digital products • AI-first growth</p>
+                    <h1>Build a sharper, faster, more premium online presence.</h1>
+                    <p class="hero-text">We design premium websites, conversion-focused SaaS experiences, and business tools that look modern, load fast, and help your brand feel world-class.</p>
                     <div class="hero-actions">
-                        <a href="#services" class="button button-primary">Explore Services</a>
-                        <a href="#contact" class="button button-secondary">Contact Us</a>
+                        <a href="#contact" class="button button-primary">Get Free Quote</a>
+                        <a href="#portfolio" class="button button-secondary">View Portfolio</a>
                     </div>
-                    <div class="hero-stats">
-                        <div class="stat-card">
-                            <strong>50+</strong>
-                            <span>Projects Delivered</span>
-                        </div>
-                        <div class="stat-card">
-                            <strong>40+</strong>
-                            <span>Happy Clients</span>
-                        </div>
-                        <div class="stat-card">
-                            <strong>98%</strong>
-                            <span>Client Satisfaction</span>
-                        </div>
-                        <div class="stat-">
-                           
-                        </div>
+                    <div class="hero-badges">
+                        <span class="pill">⚡ 1-week onboarding</span>
+                        <span class="pill">🛡️ Secure delivery</span>
+                        <span class="pill">📈 Growth-ready UI</span>
                     </div>
                 </div>
-                <div class="hero-media">
-                    <img src="Owner.jpg" alt="SK Web Solutions founder" class="hero-image">
-                    <p class="founder-name">Mr_Sarang_Kumar</p>
+                <div class="hero-card glass-card reveal">
+                    <div class="hero-card-top">
+                        <span class="status-pill">● Online for new projects</span>
+                        <span class="status-pill">⭐ 4.9/5 rating</span>
+                    </div>
+                    <img src="Owner.jpg" alt="SK Web Solutions Founder" class="owner-avatar">
+                    <h3>Founder-Mr_Sarang_Kumar</h3>
+                    <p>Every project is guided by a direct founder-led process, tailored strategy, and elite UI execution.</p>
+                    <ul class="hero-list">
+                        <li>Custom design systems and premium UI</li>
+                        <li>SEO, speed, analytics, and conversion focus</li>
+                        <li>PDF tools, automation, and AI-enabled utilities</li>
+                    </ul>
                 </div>
-                </div>
+            </div>
         </section>
 
-        <section class="section section-services" id="services">
+        <section class="trusted-strip reveal">
+            <div class="container trusted-grid">
+                <span>Trusted by founders</span>
+                <span>Hyderabad • India</span>
+                <span>Fast turnaround</span>
+                <span>Premium support</span>
+            </div>
+        </section>
+
+        <section class="section" id="about">
+            <div class="container two-column">
+                <div class="glass-card reveal">
+                    <p class="eyebrow">About SK Web Solutions</p>
+                    <h2>We build digital experiences that feel premium from the first click.</h2>
+                    <p>Our team blends modern UX, strategic storytelling, and engineering discipline to turn rough ideas into polished products and revenue-driving websites.</p>
+                    <p>Whether you need a stunning business website, a client portal, or a full SaaS-style platform, we create with speed, clarity, and premium execution.</p>
+                </div>
+                <div class="stats-grid reveal">
+                    <div class="stat-card glass-card">
+                        <strong>50+</strong>
+                        <span>Projects launched</span>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <strong>40+</strong>
+                        <span>Happy clients</span>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <strong>98%</strong>
+                        <span>Client satisfaction</span>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <strong>24/7</strong>
+                        <span>Support readiness</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="services">
             <div class="container">
-                <div class="section-heading">
-                    <p class="eyebrow">Our services</p>
-                    <h2>Solutions built for growth and performance</h2>
+                <div class="section-heading reveal">
+                    <p class="eyebrow">Core services</p>
+                    <h2>Everything your business needs to look modern and scale faster.</h2>
                 </div>
                 <div class="service-grid">
-                    <article class="card">
-                        <h3>Web Development</h3>
-                        <p>Custom websites built with clean HTML, CSS, and JavaScript, designed to look professional and perform reliably.</p>
+                    <article class="service-card glass-card reveal">
+                        <h3>Premium Website Design</h3>
+                        <p>Elegant landing pages, corporate sites, and conversion-focused experiences with polished motion and responsive UI.</p>
                     </article>
-                    <article class="card">
-                        <h3>E-commerce & Landing Pages</h3>
-                        <p>Conversion-focused storefronts and landing pages that improve user engagement and sales.</p>
+                    <article class="service-card glass-card reveal">
+                        <h3>SaaS & Product UI</h3>
+                        <p>Dashboards, client portals, B2B platforms, and product experiences crafted for clarity and growth.</p>
                     </article>
-                    <article class="card">
-                        <h3>Performance & SEO</h3>
-                        <p>Fast-loading pages and semantic structure to support better search visibility and user experience.</p>
+                    <article class="service-card glass-card reveal">
+                        <h3>Automation & Tools</h3>
+                        <p>Smart utility platforms, AI-powered workflows, PDF systems, and business tools that save time.</p>
                     </article>
-                    <article class="card">
-                        <h3>Client-Driven Delivery</h3>
-                        <p>We turn your client requirements into polished, production-ready frontend websites.</p>
+                    <article class="service-card glass-card reveal">
+                        <h3>SEO & Performance</h3>
+                        <p>Lightning-fast implementations, structured content, and optimization for search visibility and trust.</p>
                     </article>
                 </div>
             </div>
         </section>
 
-        <section class="section section-work" id="work">
+        <section class="section alt-section" id="portfolio">
             <div class="container">
-                <div class="section-heading">
-                    <p class="eyebrow">collaboration Ads</p>
-                    <h2>Upcoming Project Ads🎉</h2>
+                <div class="section-heading reveal">
+                    <p class="eyebrow">Featured work</p>
+                    <h2>Recent builds designed for real business impact.</h2>
                 </div>
-                <div class="case-grid">
-                    <article class="case-card">
-                        <div class="case-badge">Mr_Vinay_Kumar</div>
+                <div class="portfolio-grid">
+                    <article class="portfolio-card glass-card reveal">
                         <h3>XIT View Interior</h3>
-                        <p>Premium Interior Design & Turnkey Solutions for Homes, Offices, Retail Stores, and Commercial Spaces.
-                            <Br> 
-                            Contact for More -+91 9032434349
-                        </p>
+                        <p>Premium interior design experience with strong visuals, trust-building content, and improved client inquiry flow.</p>
+                        <a href="#contact" class="text-link">Book a similar project →</a>
                     </article>
-                    <article class="case-card">
-                        <div class="case-badge">SK Web</div>
-                        <h3>Updated version coming soon</h3>
-                        <p>Coming soon with an updated design, engaging pages, and more features.</p>
+                    <article class="portfolio-card glass-card reveal">
+                        <h3>SK PDF Tools</h3>
+                        <p>A premium PDF utility portal designed to feel like a professional SaaS experience rather than a basic template page.</p>
+                        <a href="pdf-tools.html" class="text-link">Explore the tool suite →</a>
                     </article>
-                    <article class="case-card">
-                        <div class="case-badge">Contact</div>
-                        <h3>Contact Us</h3>
-                        <p>Delivered a high-performance real estate portal with advanced search and contact workflows.
-                            Contact +91 7095244790
-                        </p>
+                    <article class="portfolio-card glass-card reveal">
+                        <h3>Business Automation</h3>
+                        <p>Lead capture, client portal workflows, and utility tools tailored for service businesses and digital agencies.</p>
+                        <a href="#contact" class="text-link">Discuss your idea →</a>
                     </article>
                 </div>
             </div>
         </section>
 
-        <section class="section section-testimonials">
+        <section class="section">
             <div class="container">
-                <div class="section-heading">
-                    <p class="eyebrow">Client feedback</p>
-                    <h2>Trusted by businesses and brands</h2>
+                <div class="section-heading reveal">
+                    <p class="eyebrow">Packages</p>
+                    <h2>Flexible packages for modern companies and ambitious founders.</h2>
                 </div>
-                <div class="testimonial-grid">
-                    <article class="testimonial-card">
-                        <p>“Sarang transformed our outdated site into a high-converting machine. Sales tripled within 3 months.”</p>
-                        <strong>Rajesh Sharma, RetailMax India</strong>
+                <div class="pricing-grid">
+                    <article class="pricing-card glass-card reveal">
+                        <h3>Launch</h3>
+                        <p class="price">₹15,000</p>
+                        <ul>
+                            <li>Premium homepage</li>
+                            <li>Responsive design</li>
+                            <li>Contact & SEO setup</li>
+                        </ul>
+                        <a href="#contact" class="button button-secondary">Choose Launch</a>
                     </article>
-                    <article class="testimonial-card">
-                        <p>“The platform handles thousands of students flawlessly. Professional, timely, and business-focused.”</p>
-                        <strong>Priya Nair, EduLearn Academy</strong>
+                    <article class="pricing-card featured glass-card reveal">
+                        <h3>Growth</h3>
+                        <p class="price">₹35,000+</p>
+                        <ul>
+                            <li>Advanced UI sections</li>
+                            <li>Blog / portfolio modules</li>
+                            <li>Analytics & automation</li>
+                        </ul>
+                        <a href="#contact" class="button button-primary">Choose Growth</a>
                     </article>
-                    <article class="testimonial-card">
-                        <p>“Our lead generation improved dramatically. The site is fast and easy to maintain.”</p>
-                        <strong>Kiran Reddy, PropertyHub Hyderabad</strong>
+                    <article class="pricing-card glass-card reveal">
+                        <h3>Scale</h3>
+                        <p class="price">Custom</p>
+                        <ul>
+                            <li>SaaS-style application</li>
+                            <li>Custom admin dashboard</li>
+                            <li>AI tools & integrations</li>
+                        </ul>
+                        <a href="#contact" class="button button-secondary">Request Scale</a>
                     </article>
                 </div>
             </div>
         </section>
 
-        <section class="section section-instagram" id="instagram">
-            <div class="container instagram-section">
-                <div class="section-heading" style="text-align:left; margin-bottom: 1.5rem;">
-                    <p class="eyebrow">Follow us</p>
-                    <h2 style="margin-bottom: 0.25rem;">Instagram</h2>
-                    <p style="margin:0; color: var(--text-light); max-width: 720px;">
-                        See our latest updates, reels and project highlights.
-                    </p>
+        <section class="section alt-section">
+            <div class="container process-layout">
+                <div class="reveal">
+                    <p class="eyebrow">Our process</p>
+                    <h2>A refined path from concept to launch.</h2>
+                    <p>We keep the process lean, transparent, and focused on making your product feel premium at every step.</p>
                 </div>
-
-                <div class="instagram-actions">
-                    <a
-                        class="button button-primary"
-                        href="https://www.instagram.com/sk_developer7?igsh=MTkybjd3b3FybDMzZw=="
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Follow on Instagram
-                    </a>
-
-                    <div class="instagram-embed" aria-label="Instagram embed">
-                        <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/sk_developer7/" data-instgrm-version="14" style="max-width:540px; margin: 1rem 0;">
-                            <a href="https://www.instagram.com/sk_developer7/">SK Developer</a>
-                        </blockquote>
+                <div class="process-list reveal">
+                    <div class="process-item glass-card">
+                        <span>01</span>
+                        <h3>Discover</h3>
+                        <p>We understand your goals, audience, and the experience you want to create.</p>
+                    </div>
+                    <div class="process-item glass-card">
+                        <span>02</span>
+                        <h3>Design</h3>
+                        <p>We craft the visual language, hierarchy, and interactive feel of the experience.</p>
+                    </div>
+                    <div class="process-item glass-card">
+                        <span>03</span>
+                        <h3>Develop</h3>
+                        <p>We build with performance, SEO, and maintainability in mind from day one.</p>
+                    </div>
+                    <div class="process-item glass-card">
+                        <span>04</span>
+                        <h3>Launch</h3>
+                        <p>We help you launch, review, iterate, and expand into new features effortlessly.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="section section-contact" id="contact">
+        <section class="section">
+            <div class="container two-column">
+                <div class="glass-card reveal">
+                    <p class="eyebrow">Why choose us</p>
+                    <h2>Premium quality without the overcomplicated agency experience.</h2>
+                    <ul class="check-list">
+                        <li>Direct communication with the owner</li>
+                        <li>Clean, modern UI systems tailored to your brand</li>
+                        <li>Support for analytics, SEO, chat, and tools</li>
+                        <li>Scalable foundations for future growth</li>
+                    </ul>
+                </div>
+                <div class="glass-card reveal">
+                    <p class="eyebrow">Technologies</p>
+                    <div class="tech-tags">
+                        <span>Next.js</span><span>React</span><span>TypeScript</span><span>Tailwind</span><span>Framer Motion</span><span>Node.js</span><span>MongoDB</span><span>Shadcn UI</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section alt-section" id="reviews">
+            <div class="container reviews-layout">
+                <div class="glass-card reveal review-form-card">
+                    <p class="eyebrow">Rate our website</p>
+                    <h2>Share your experience with SK Web Solutions.</h2>
+                    <div class="star-rating" id="star-rating" aria-label="Choose a rating">
+                        <button class="star" type="button" data-rating="1">★</button>
+                        <button class="star" type="button" data-rating="2">★</button>
+                        <button class="star" type="button" data-rating="3">★</button>
+                        <button class="star" type="button" data-rating="4">★</button>
+                        <button class="star" type="button" data-rating="5">★</button>
+                    </div>
+                    <form id="review-form">
+                        <div class="form-group">
+                            <label for="review-name">Name</label>
+                            <input id="review-name" type="text" placeholder="Your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="review-email">Email (optional)</label>
+                            <input id="review-email" type="email" placeholder="you@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="review-message">Review</label>
+                            <textarea id="review-message" rows="4" placeholder="What stood out to you?" required></textarea>
+                        </div>
+                        <button type="submit" class="button button-primary">Submit review</button>
+                        <p id="review-status" class="form-status"></p>
+                    </form>
+                </div>
+                <div class="glass-card reveal review-list-card">
+                    <p class="eyebrow">Client feedback</p>
+                    <h2>What visitors are saying.</h2>
+                    <div id="review-list" class="review-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="faq">
+            <div class="container">
+                <div class="section-heading reveal">
+                    <p class="eyebrow">Frequently asked</p>
+                    <h2>Answers for founders and business owners.</h2>
+                </div>
+                <div class="faq-list">
+                    <div class="faq-item glass-card reveal">
+                        <button class="faq-toggle">How fast can a project be delivered?<span>+</span></button>
+                        <div class="faq-answer"><p>Most landing pages and premium websites can be delivered within 5–10 business days depending on scope and content readiness.</p></div>
+                    </div>
+                    <div class="faq-item glass-card reveal">
+                        <button class="faq-toggle">Do you offer PDF tools and utility platforms?<span>+</span></button>
+                        <div class="faq-answer"><p>Yes. We can build a branded PDF suite, automation tools, and internal dashboards for your business or audience.</p></div>
+                    </div>
+                    <div class="faq-item glass-card reveal">
+                        <button class="faq-toggle">Can you help with SEO and analytics?<span>+</span></button>
+                        <div class="faq-answer"><p>Absolutely. We plan every build with SEO structure, performance optimization, and analytics foundations from the start.</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="contact">
             <div class="container contact-grid">
-                <div class="contact-info">
-                    <p class="eyebrow">Get in touch</p>
-                    <h2>Ready to launch your next website?</h2>
-                    <p>Tell us your requirements and we’ll deliver a polished frontend that aligns with your business goals.</p>
+                <div class="glass-card reveal contact-card">
+                    <p class="eyebrow">Book a discovery call</p>
+                    <h2>Let’s create something premium together.</h2>
+                    <p>Use the contact form or reach out directly for a consultation about your website, automation, or PDF platform needs.</p>
                     <div class="contact-details">
                         <p><strong>Email:</strong> <a href="mailto:Skwebdeveloper@proton.me">Skwebdeveloper@proton.me</a></p>
                         <p><strong>Phone:</strong> +91 7095244790</p>
-                        <p><strong>Meeting:</strong> Available Mon–Fri, 9AM–6PM IST. Reply to the email to schedule a call or video meeting.</p>
+                        <p><strong>Location:</strong> Hyderabad, India</p>
                     </div>
                 </div>
-                <form class="feedback-form" id="feedback-form">
-                    <p class="eyebrow">Feedback & support</p>
-                    <h2>Send a quick message</h2>
+                <form class="glass-card reveal feedback-form" id="feedback-form">
+                    <p class="eyebrow">Send a message</p>
+                    <h2>Tell us about your project.</h2>
                     <div class="form-group">
                         <label for="feedback-name">Name</label>
                         <input id="feedback-name" type="text" placeholder="Your name" required>
                     </div>
                     <div class="form-group">
                         <label for="feedback-contact">Email or phone</label>
-                        <input id="feedback-contact" type="text" placeholder="Email or phone (optional)">
-                        <small>Provide a contact method so admin can follow up.</small>
+                        <input id="feedback-contact" type="text" placeholder="Email or phone">
                     </div>
                     <div class="form-group">
                         <label for="feedback-message">Message</label>
-                        <textarea id="feedback-message" rows="5" placeholder="Describe your request or support need" required></textarea>
+                        <textarea id="feedback-message" rows="5" placeholder="Describe your requirements" required></textarea>
                     </div>
-                    <button type="submit" class="button button-primary">Send Feedback</button>
-                    <p id="form-success" class="form-success hidden">Thank you. Your message has been delivered to the admin inbox.</p>
+                    <button type="submit" class="button button-primary">Send enquiry</button>
+                    <p id="form-success" class="form-status hidden"></p>
                     <div id="client-notification" class="client-notification hidden"></div>
-                    <div class="status-check">
-                        <h3>Check meeting status</h3>
-                        <div class="form-group">
-                            <label for="status-contact">Email or phone</label>
-                            <input id="status-contact" type="text" placeholder="Enter your contact to check status">
-                        </div>
-                        <button type="button" id="status-check-button" class="button button-secondary">Check Status</button>
-                        <div id="status-result" class="client-notification hidden"></div>
-                    </div>
                 </form>
             </div>
         </section>
     </main>
 
-    <!-- WhatsApp Floating Button -->
-    <a href="https://wa.me/917095244790?text=Hello%20SK%20Web%20Solutions%2C%0A%0AI%20am%20interested%20in%20your%20services.%20Could%20you%20please%20provide%20more%20information%3F%0A%0AThank%20you%21" 
-       class="whatsapp-float" 
-       target="_blank" 
-       rel="noopener noreferrer"
-       aria-label="Chat on WhatsApp">
+    <a href="https://wa.me/917095244790?text=Hello%20SK%20Web%20Solutions%2C%20I%20would%20love%20to%20discuss%20a%20project." class="whatsapp-float" target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp">
         <svg viewBox="0 0 32 32" class="whatsapp-icon">
-            <path fill="currentColor" d="M16 0c-8.837 0-16 7.163-16 16 0 2.825 0.737 5.607 2.137 8.048l-2.137 7.952 7.933-2.127c2.42 1.37 5.173 2.127 8.067 2.127 8.837 0 16-7.163 16-16s-7.163-16-16-16zM16 29.467c-2.482 0-4.908-0.646-7.07-1.87l-0.507-0.292-5.245 1.407 1.407-5.245-0.292-0.507c-1.224-2.162-1.87-4.588-1.87-7.07 0-7.72 6.28-14 14-14s14 6.28 14 14-6.28 14-14 14zM21.793 18.793c-0.214-0.107-1.262-0.622-1.456-0.694-0.194-0.072-0.336-0.107-0.477 0.107s-0.547 0.694-0.672 0.836c-0.125 0.142-0.25 0.16-0.464 0.053-1.783-0.893-2.953-1.591-4.13-3.608-0.312-0.534 0.312-0.497 0.893-1.655 0.098-0.194 0.049-0.363-0.027-0.509-0.076-0.146-0.672-1.619-0.921-2.217-0.242-0.579-0.487-0.5-0.672-0.509-0.174-0.009-0.373-0.009-0.571-0.009s-0.52 0.071-0.793 0.366c-0.272 0.295-1.04 1.016-1.04 2.479s1.065 2.876 1.213 3.074c0.148 0.198 2.095 3.2 5.076 4.487 2.981 1.288 2.981 0.857 3.534 0.804 0.553-0.053 1.262-0.516 1.44-1.013 0.178-0.497 0.178-0.924 0.125-1.013-0.053-0.089-0.196-0.142-0.41-0.249z"/>
+            <path fill="currentColor" d="M16 0c-8.837 0-16 7.163-16 16 0 2.825 0.737 5.607 2.137 8.048l-2.137 7.952 7.933-2.127c2.42 1.37 5.173 2.127 8.067 2.127 8.837 0 16-7.163 16-16s-7.163-16-16-16z"/>
         </svg>
-        <span class="whatsapp-tooltip">Chat with us</span>
     </a>
 
-    <!-- Instagram embed script (best-effort) -->
-    <script async src="https://www.instagram.com/embed.js"></script>
+    <div class="assistant-widget" id="assistant-widget">
+        <button class="assistant-toggle" id="assistant-toggle">Ask AI</button>
+        <div class="assistant-panel hidden" id="assistant-panel">
+            <p class="assistant-title">Need help choosing a solution?</p>
+            <button class="assistant-chip">Website</button>
+            <button class="assistant-chip">PDF tools</button>
+            <button class="assistant-chip">Automation</button>
+            <p class="assistant-note">Our AI assistant can guide you to the right service package instantly.</p>
+        </div>
+    </div>
 
     <footer class="site-footer">
-
         <div class="container footer-inner">
-            <p>© 2026 SK Web Solutions. Based in Hyderabad, India.</p>
+            <p>© 2026 SK Web Solutions. Premium digital experiences for ambitious brands.</p>
         </div>
     </footer>
 
