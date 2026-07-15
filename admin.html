@@ -3,89 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SK Web Solutions | Admin Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>SK Web Solutions | Admin Inbox</title>
+    <link rel="stylesheet" href="Style.css">
 </head>
-<body class="theme-dark">
-    <div class="dashboard-shell">
-        <aside class="sidebar glass-card">
-            <a class="brand" href="index.html"><span>SK</span> Web Solutions</a>
-            <p class="eyebrow">Command center</p>
-            <h2>Admin dashboard</h2>
-            <ul class="sidebar-links">
-                <li>Overview</li>
-                <li>Reviews</li>
-                <li>Contacts</li>
-                <li>Visitors</li>
-                <li>PDF tools</li>
-            </ul>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand"><span>SK</span> Web Solutions</div>
+            <nav class="main-nav" id="main-nav">
+                <a href="index.html">Home</a>
+                <a href="index.html#services">Services</a>
+                <a href="index.html#work">Work</a>
+                <a href="gallery.html">Gallery</a>
+                <a href="index.html#contact">Contact</a>
+            </nav>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
+        </div>
+    </header>
 
-            <form class="admin-login-card" id="admin-login-form">
-                <h3>Secure access</h3>
-                <div class="form-group">
-                    <label for="admin-username">Username</label>
-                    <input id="admin-username" type="text" value="admin" required>
+    <main>
+        <section class="section section-contact">
+            <div class="container admin-grid">
+                <div class="contact-info card">
+                    <p class="eyebrow">Admin inbox</p>
                 </div>
-                <div class="form-group">
-                    <label for="admin-password">Password</label>
-                    <input id="admin-password" type="password" value="admin@2024" required>
+                <div class="card" id="admin-login-card">
+                    <p class="eyebrow">Admin login</p>
+                    <h2>Enter credentials</h2>
+                    <form id="admin-login-form">
+                        <div class="form-group">
+                            <label for="admin-username">Username</label>
+                            <input id="admin-username" type="text" placeholder="admin" value="admin" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-password">Password</label>
+                            <input id="admin-password" type="password" placeholder="Enter: admin@2024" required>
+                        </div>
+                        <button type="submit" class="button button-primary">Login</button>
+                        <p id="admin-status" class="contact-note">
+                            <strong>Credentials:</strong><br>
+                            Username: <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">admin</code><br>
+                            Password: <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">admin@2024</code>
+                        </p>
+                    </form>
                 </div>
-                <button type="submit" class="button button-primary">Login</button>
-                <p id="admin-status" class="form-status"></p>
-            </form>
-        </aside>
 
-        <main class="dashboard-main">
-            <div class="dashboard-header">
-                <div>
-                    <p class="eyebrow">Today’s view</p>
-                    <h1>Premium operations dashboard</h1>
+                <div class="card admin-gallery hidden" id="admin-gallery-card">
+
+                    <p class="eyebrow">Projects Images Upload</p>
+                    <h2>Upload project images</h2>
+                    <form id="projects-upload-form" class="gallery-upload-form" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="project-name">Project name</label>
+                            <input id="project-name" name="projectName" type="text" placeholder="e.g. XIT View Interior" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-images">Images</label>
+                            <input id="project-images" name="images" type="file" multiple accept="image/*" required>
+                            <small>Upload JPG/PNG/WebP images.</small>
+                        </div>
+                        <button type="submit" class="button button-primary">Upload Images</button>
+                        <div id="projects-upload-status" class="client-notification hidden"></div>
+                    </form>
                 </div>
-                <button class="button button-secondary" id="logout-admin">Logout</button>
+
+                <div class="card admin-gallery-list hidden" id="admin-gallery-list-card">
+                    <p class="eyebrow">Uploaded Project Images</p>
+                    <h2>Manage uploads</h2>
+                    <div id="admin-projects-list" class="admin-gallery-list-grid"></div>
+                </div>
+
+
+                <!-- Visit Statistics Section -->
+                <div class="card admin-visit-stats hidden" id="admin-visit-stats">
+                    <div class="admin-inbox-header">
+                        <div>
+                            <p class="eyebrow">Analytics</p>
+                            <h2>Website Visit Statistics</h2>
+                        </div>
+                        <div>
+                            <button id="refresh-visits" class="button button-secondary">Refresh</button>
+                            <button id="clear-visits" class="button button-secondary">Clear All</button>
+                        </div>
+                    </div>
+                    <div class="visit-stats-grid" id="visit-stats-summary"></div>
+                    <div class="visit-history-section">
+                        <h3>Recent Visits</h3>
+                        <div id="visit-history-list"></div>
+                        <div id="visit-pagination"></div>
+                    </div>
+                </div>
+
+                <div class="card admin-inbox hidden" id="admin-inbox">
+                    <div class="admin-inbox-header">
+                        <div>
+                            <p class="eyebrow">Inbox</p>
+                            <h2>Client messages</h2>
+                        </div>
+                        <button id="admin-clear-messages" class="button button-secondary">Clear all</button>
+                    </div>
+                    <div class="admin-stats-grid" id="admin-stats"></div>
+                    <div id="admin-message-list"></div>
+                </div>
             </div>
+        </section>
+    </main>
 
-            <section class="stats-grid" id="admin-dashboard" hidden>
-                <article class="stat-card glass-card">
-                    <strong id="stat-visitors">0</strong>
-                    <span>Visitors today</span>
-                </article>
-                <article class="stat-card glass-card">
-                    <strong id="stat-total-visitors">0</strong>
-                    <span>Total visitors</span>
-                </article>
-                <article class="stat-card glass-card">
-                    <strong id="stat-reviews">0</strong>
-                    <span>Total reviews</span>
-                </article>
-                <article class="stat-card glass-card">
-                    <strong id="stat-rating">0.0</strong>
-                    <span>Average rating</span>
-                </article>
-            </section>
-
-            <section class="dashboard-grid" id="admin-dashboard-content" hidden>
-                <article class="glass-card">
-                    <div class="section-heading left">
-                        <p class="eyebrow">Review moderation</p>
-                        <h2>Approve or reply to customer reviews.</h2>
-                    </div>
-                    <div id="admin-reviews"></div>
-                </article>
-
-                <article class="glass-card">
-                    <div class="section-heading left">
-                        <p class="eyebrow">Recent enquiries</p>
-                        <h2>Messages and requests.</h2>
-                    </div>
-                    <div id="admin-messages"></div>
-                </article>
-            </section>
-        </main>
-    </div>
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>© 2026 SK Web Solutions. Admin inbox for client messages.</p>
+        </div>
+    </footer>
 
     <script src="script.js"></script>
+    <script>
+        // Debug helper for login
+        console.log('Admin page loaded');
+        console.log('Expected credentials:', {
+            username: 'admin',
+            password: 'admin@2024'
+        });
+        
+        // Check if form exists
+        const form = document.getElementById('admin-login-form');
+        if (form) {
+            console.log('Login form found successfully');
+            form.addEventListener('submit', function(e) {
+                const username = document.getElementById('admin-username')?.value.trim();
+                const password = document.getElementById('admin-password')?.value.trim();
+                console.log('Form submitted with:', {
+                    username: username,
+                    password: password,
+                    usernameMatch: username === 'admin',
+                    passwordMatch: password === 'admin@2024'
+                });
+            });
+        } else {
+            console.error('Login form not found');
+        }
+    </script>
 </body>
 </html>

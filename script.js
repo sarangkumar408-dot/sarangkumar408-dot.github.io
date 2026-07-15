@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initStatusCheck();
     }
 
-    if (document.getElementById('admin-login-form') && document.getElementById('admin-inbox')) {
+    if (document.getElementById('admin-login-form')) {
         initAdminLogin();
     }
 
@@ -57,6 +57,10 @@ document.addEventListener('DOMContentLoaded', function() {
         initProjectsImagesPage();
     }
 
+    // PDF tools page wire-up
+    if (document.getElementById('pdf-tools-page')) {
+        initPDFToolsPage();
+    }
 
     // Load visitor count on homepage
     if (document.getElementById('visitor-count')) {
@@ -67,9 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('admin-visit-stats')) {
         initVisitStats();
     }
-
-    initPremiumFeatures();
 });
+
 
 // Local Storage Helper Functions (for demo without server)
 function getMessagesFromStorage() {
@@ -1855,8 +1858,24 @@ async function loadProjectsImagesAdminList() {
         listContainer.innerHTML = '<p class="contact-note">Failed to load uploads.</p>';
     }
 }
+                    console.error(err);
+                    if (statusElement) {
+                        statusElement.textContent = `Delete failed: ${err.message}`;
+                        statusElement.className = 'client-notification error';
+                        statusElement.classList.remove('hidden');
+                    }
+                }
+            });
+        });
+    } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = '<p class="contact-note">Failed to load uploads.</p>';
+    }
+}
+
 
 async function initProjectsImagesPage() {
+
     const listContainer = document.getElementById('projects-list');
     const empty = document.getElementById('projects-empty');
     const searchInput = document.getElementById('projects-search');
@@ -1920,245 +1939,104 @@ async function initProjectsImagesPage() {
 window.updateMessageStatus = updateMessageStatus;
 window.loadVisitPage = loadVisitPage;
 
-function initPremiumFeatures() {
-    initThemeToggle();
-    initFaq();
-    initAssistant();
-    initReviews();
-    initPdfTools();
-    initAdminDashboard();
-}
+// =============================
+// PDF Tools UI wiring (stub convert + download)
+// =============================
+function initPDFToolsPage() {
+    const page = document.getElementById('pdf-tools-page');
+    if (!page) return;
 
-function initThemeToggle() {
-    const toggle = document.getElementById('theme-toggle');
-    if (!toggle) return;
+    const API_UPLOAD = '/api/pdf-tools/upload';
+    const API_CONVERT = '/api/pdf-tools/convert';
+    const API_DOWNLOAD_BASE = '/api/pdf-tools/result/';
 
-    const saved = localStorage.getItem('sk-theme');
-    if (saved === 'light') {
-        document.body.classList.add('light');
-        toggle.textContent = '🌙';
-    } else {
-        document.body.classList.remove('light');
-        toggle.textContent = '☀️';
-    }
+    // Each tool card contains:
+    // - file input (type=file)
+    // - button.tool-upload
+    // - button.tool-download
+    page.querySelectorAll('.pdf-tool-card').forEach(card => {
+        const input = card.querySelector('input[type="file"]');
+        const uploadBtn = card.querySelector('.tool-upload');
+        const downloadBtn = card.querySelector('.tool-download');
 
-    toggle.addEventListener('click', () => {
-        document.body.classList.toggle('light');
-        const isLight = document.body.classList.contains('light');
-        localStorage.setItem('sk-theme', isLight ? 'light' : 'dark');
-        toggle.textContent = isLight ? '🌙' : '☀️';
-    });
-}
+        if (!input || !uploadBtn || !downloadBtn) return;
 
-function initFaq() {
-    document.querySelectorAll('.faq-item').forEach(item => {
-        const button = item.querySelector('.faq-toggle');
-        if (!button) return;
-        button.addEventListener('click', () => {
-            item.classList.toggle('active');
+        // Ensure only one file is used for the stub pipeline
+        input.multiple = false;
+
+        let selectedFile = null;
+
+        input.addEventListener('change', () => {
+            selectedFile = (input.files && input.files.length) ? input.files[0] : null;
+            setProgress(card, 0);
+            downloadBtn.disabled = true;
+            downloadBtn.dataset.convertedId = '';
         });
-    });
-}
 
-function initAssistant() {
-    const toggle = document.getElementById('assistant-toggle');
-    const panel = document.getElementById('assistant-panel');
-    if (!toggle || !panel) return;
-    toggle.addEventListener('click', () => panel.classList.toggle('hidden'));
-}
-
-async function initReviews() {
-    const reviewList = document.getElementById('review-list');
-    const form = document.getElementById('review-form');
-    const stars = document.querySelectorAll('.star');
-    const status = document.getElementById('review-status');
-    if (!reviewList) return;
-
-    let selectedRating = 0;
-    stars.forEach((star, index) => {
-        star.addEventListener('click', () => {
-            selectedRating = index + 1;
-            stars.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex < selectedRating));
-        });
-    });
-
-    async function loadReviews() {
-        try {
-            const response = await fetch('/api/reviews?public=true');
-            const reviews = await response.json();
-            if (!Array.isArray(reviews)) return;
-            if (!reviews.length) {
-                reviewList.innerHTML = '<div class="review-item"><strong>No reviews yet.</strong><p>Be the first to leave feedback.</p></div>';
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('Please select a file first.');
                 return;
             }
-            reviewList.innerHTML = reviews.map(item => `
-                <div class="review-item">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <div class="star-rating">${'★'.repeat(item.rating)}</div>
-                    <p>${escapeHtml(item.review)}</p>
-                    ${item.reply ? `<p><strong>Reply:</strong> ${escapeHtml(item.reply)}</p>` : ''}
-                </div>
-            `).join('');
-        } catch (error) {
-            reviewList.innerHTML = '<div class="review-item"><strong>Reviews unavailable.</strong><p>Check back soon.</p></div>';
-        }
-    }
 
-    if (form) {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            if (!selectedRating) {
-                status.textContent = 'Please select a star rating.';
-                return;
-            }
-            const payload = {
-                name: document.getElementById('review-name').value.trim(),
-                email: document.getElementById('review-email').value.trim(),
-                rating: selectedRating,
-                review: document.getElementById('review-message').value.trim()
-            };
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            setProgress(card, 20);
+
             try {
-                const response = await fetch('/api/reviews', {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const uploadRes = await fetch(API_UPLOAD, { method: 'POST', body: formData });
+                if (!uploadRes.ok) {
+                    const err = await uploadRes.text();
+                    throw new Error(err || 'Upload failed');
+                }
+
+                const uploadData = await uploadRes.json();
+                setProgress(card, 60);
+
+                const convertRes = await fetch(API_CONVERT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ uploadId: uploadData.uploadId })
                 });
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.error || 'Could not submit review');
+
+                if (!convertRes.ok) {
+                    const err = await convertRes.text();
+                    throw new Error(err || 'Convert failed');
                 }
-                form.reset();
-                stars.forEach(item => item.classList.remove('active'));
-                selectedRating = 0;
-                status.textContent = 'Thanks for your review. It will appear after moderation.';
-                await loadReviews();
-            } catch (error) {
-                status.textContent = error.message;
+
+                const convertData = await convertRes.json();
+                setProgress(card, 100);
+
+                downloadBtn.disabled = false;
+                downloadBtn.dataset.convertedId = convertData.convertedId;
+                downloadBtn.textContent = 'Download';
+
+                // Use the correct download URL
+                downloadBtn.onclick = () => {
+                    const id = downloadBtn.dataset.convertedId;
+                    if (!id) return;
+                    window.location.href = `${API_DOWNLOAD_BASE}${encodeURIComponent(id)}/download`;
+                };
+            } catch (e) {
+                console.error(e);
+                alert('PDF tool failed: ' + (e.message || e));
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload';
             }
         });
-    }
-
-    await loadReviews();
-}
-
-function initPdfTools() {
-    document.querySelectorAll('.pdf-tool-card').forEach(card => {
-        const uploadBtn = card.querySelector('.tool-upload');
-        const progressFill = card.querySelector('.progress-fill');
-        const downloadBtn = card.querySelector('.tool-download');
-        const input = card.querySelector('input[type="file"]');
-
-        if (!uploadBtn || !progressFill || !downloadBtn) return;
-
-        uploadBtn.addEventListener('click', () => {
-            if (input) {
-                input.click();
-            }
-        });
-
-        if (input) {
-            input.addEventListener('change', () => {
-                progressFill.style.width = '0%';
-                downloadBtn.disabled = true;
-                const interval = setInterval(() => {
-                    const current = Number(progressFill.style.width.replace('%', '')) || 0;
-                    if (current >= 100) {
-                        clearInterval(interval);
-                        downloadBtn.disabled = false;
-                        return;
-                    }
-                    progressFill.style.width = `${Math.min(current + 14, 100)}%`;
-                }, 140);
-            });
-        }
     });
 }
 
-function initAdminDashboard() {
-    const loginForm = document.getElementById('admin-login-form');
-    const dashboard = document.getElementById('admin-dashboard');
-    const dashboardContent = document.getElementById('admin-dashboard-content');
-    const logoutBtn = document.getElementById('logout-admin');
-    const status = document.getElementById('admin-status');
-    if (!loginForm || !dashboard) return;
-
-    const isLoggedIn = localStorage.getItem('sk-admin-logged-in') === 'true';
-    if (isLoggedIn) {
-        loginForm.classList.add('hidden');
-        dashboard.hidden = false;
-        dashboardContent.hidden = false;
-        loadAdminDashboard();
-    }
-
-    loginForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const username = document.getElementById('admin-username').value.trim();
-        const password = document.getElementById('admin-password').value.trim();
-        if (username === 'admin' && password === 'admin@2024') {
-            localStorage.setItem('sk-admin-logged-in', 'true');
-            loginForm.classList.add('hidden');
-            dashboard.hidden = false;
-            dashboardContent.hidden = false;
-            loadAdminDashboard();
-            if (status) status.textContent = 'Welcome back.';
-        } else if (status) {
-            status.textContent = 'Invalid credentials.';
-        }
-    });
-
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('sk-admin-logged-in');
-            loginForm.classList.remove('hidden');
-            dashboard.hidden = true;
-            dashboardContent.hidden = true;
-        });
-    }
+function setProgress(card, percent) {
+    const fill = card.querySelector('.progress-fill');
+    if (!fill) return;
+    fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
 }
 
-async function loadAdminDashboard() {
-    try {
-        const reviewsResponse = await fetch('/api/reviews');
-        const reviews = await reviewsResponse.json();
-        const reviewCount = Array.isArray(reviews) ? reviews.length : 0;
-        const avgRating = Array.isArray(reviews) && reviewCount ? (reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviewCount).toFixed(1) : '0.0';
+window.initPDFToolsPage = initPDFToolsPage;
 
-        const messageResponse = await fetch('/api/messages');
-        const messages = await messageResponse.json();
-
-        document.getElementById('stat-visitors').textContent = '126';
-        document.getElementById('stat-total-visitors').textContent = '1.2K';
-        document.getElementById('stat-reviews').textContent = reviewCount;
-        document.getElementById('stat-rating').textContent = avgRating;
-
-        const reviewContainer = document.getElementById('admin-reviews');
-        const messageContainer = document.getElementById('admin-messages');
-
-        if (reviewContainer) {
-            reviewContainer.innerHTML = (Array.isArray(reviews) ? reviews : []).slice(0, 4).map(item => `
-                <div class="review-item-admin">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <div>${'★'.repeat(item.rating)}</div>
-                    <p>${escapeHtml(item.review)}</p>
-                    <div class="actions">
-                        <button>Approve</button>
-                        <button>Reply</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        if (messageContainer) {
-            messageContainer.innerHTML = (Array.isArray(messages) ? messages : []).slice(0, 4).map(item => `
-                <div class="review-item-admin">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <p>${escapeHtml(item.message)}</p>
-                    <small>${new Date(item.receivedAt).toLocaleString()}</small>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error(error);
-    }
-}
 

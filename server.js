@@ -11,7 +11,6 @@ const galleryDir = path.join(dataDir, 'gallery_files');
 const messagesFile = path.join(dataDir, 'messages.json');
 const visitsFile = path.join(dataDir, 'visits.json');
 const galleryFile = path.join(dataDir, 'gallery.json');
-const reviewsFile = path.join(dataDir, 'reviews.json');
 
 // Simple projects-images upload
 const projectsImagesDir = path.join(dataDir, 'projects_images');
@@ -27,7 +26,21 @@ const adminSessions = new Map();
 app.use(express.json());
 app.use('/gallery-files', express.static(galleryDir));
 app.use('/projects-images-files', express.static(projectsImagesDir));
+
+// --- PDF tools storage (upload + converted output) ---
+const pdfToolsDataDir = path.join(dataDir, 'pdf_tools');
+const pdfToolsUploadsDir = path.join(pdfToolsDataDir, 'uploads');
+const pdfToolsConvertedDir = path.join(pdfToolsDataDir, 'converted');
+
+// Ensure directories exist on boot
+if (!fs.existsSync(pdfToolsUploadsDir)) fs.mkdirSync(pdfToolsUploadsDir, { recursive: true });
+if (!fs.existsSync(pdfToolsConvertedDir)) fs.mkdirSync(pdfToolsConvertedDir, { recursive: true });
+
+// Serve converted files directly (optional, but helps downloads)
+app.use('/pdf-tools-converted', express.static(pdfToolsConvertedDir));
+
 app.use(express.static(path.join(__dirname)));
+
 
 // Middleware to check admin authentication
 function requireAdmin(req, res, next) {
@@ -52,9 +65,6 @@ function ensureDataFile() {
     }
     if (!fs.existsSync(galleryFile)) {
         fs.writeFileSync(galleryFile, '[]', 'utf8');
-    }
-    if (!fs.existsSync(reviewsFile)) {
-        fs.writeFileSync(reviewsFile, '[]', 'utf8');
     }
 
     // Projects-images storage
@@ -248,6 +258,98 @@ app.get('/api/gallery/:projectId/download-all', (req, res) => {
     archive.finalize();
 });
 
+// =============================
+// PDF Tools (stub convert + download)
+// =============================
+// Upload a PDF/image file and return an uploadId.
+// Convert endpoint is a stub: it copies the uploaded file to converted output.
+
+const pdfToolsUpload = multer({
+    storage: multer.diskStorage({
+        destination: function (req, file, cb) {
+            cb(null, pdfToolsUploadsDir);
+        },
+        filename: function (req, file, cb) {
+            const ext = path.extname(file.originalname) || '.bin';
+            const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+            cb(null, `${Date.now()}-${Math.random().toString(16).slice(2)}-${safeBase}${ext}`);
+        }
+    }),
+    limits: { fileSize: 300 * 1024 * 1024 }
+});
+
+app.post('/api/pdf-tools/upload', pdfToolsUpload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' });
+        }
+        const uploadId = req.file.filename;
+        res.json({
+            success: true,
+            uploadId,
+            originalName: req.file.originalname,
+            mimeType: req.file.mimetype,
+            size: req.file.size,
+        });
+    } catch (e) {
+        console.error('pdf-tools upload error:', e);
+        res.status(500).json({ error: 'Upload failed.' });
+    }
+});
+
+app.post('/api/pdf-tools/convert', (req, res) => {
+    try {
+        const { uploadId } = req.body || {};
+        if (!uploadId) return res.status(400).json({ error: 'uploadId is required.' });
+
+        const inputPath = path.join(pdfToolsUploadsDir, uploadId);
+        if (!fs.existsSync(inputPath)) {
+            return res.status(404).json({ error: 'Uploaded file not found.' });
+        }
+
+        // Stub conversion: copy upload -> converted
+        const ext = path.extname(uploadId) || '.pdf';
+        const convertedId = `converted-${uploadId.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const outputPath = path.join(pdfToolsConvertedDir, convertedId + ext);
+
+        // Avoid double-ext if uploadId already includes ext
+        // If outputPath doesn't exist as intended, fallback to exact copy name.
+        if (fs.existsSync(outputPath)) {
+            // noop
+        } else {
+            // If convertedId+ext already wrong, just use same extension as input file
+            const inputExt = path.extname(inputPath);
+            const finalConvertedName = `converted-${Date.now()}-${Math.random().toString(16).slice(2)}${inputExt}`;
+            const finalOutputPath = path.join(pdfToolsConvertedDir, finalConvertedName);
+            fs.copyFileSync(inputPath, finalOutputPath);
+            return res.json({ success: true, convertedId: finalConvertedName });
+        }
+
+        fs.copyFileSync(inputPath, outputPath);
+        res.json({ success: true, convertedId: convertedId + ext });
+    } catch (e) {
+        console.error('pdf-tools convert error:', e);
+        res.status(500).json({ error: 'Convert failed.' });
+    }
+});
+
+app.get('/api/pdf-tools/result/:convertedId/download', (req, res) => {
+    try {
+        const convertedId = req.params.convertedId;
+        const filePath = path.join(pdfToolsConvertedDir, convertedId);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'Converted file not found.' });
+        }
+
+        const downloadName = convertedId.replace(/^converted-/, 'converted-');
+        res.download(filePath, downloadName);
+    } catch (e) {
+        console.error('pdf-tools download error:', e);
+        res.status(500).json({ error: 'Download failed.' });
+    }
+});
+
+
 // Projects Images (simple upload + download + delete)
 const projectsImagesStorage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -396,21 +498,6 @@ function readVisits() {
 function writeVisits(visits) {
   ensureDataFile();
   fs.writeFileSync(visitsFile, JSON.stringify(visits, null, 2), 'utf8');
-}
-
-function readReviews() {
-  ensureDataFile();
-  const raw = fs.readFileSync(reviewsFile, 'utf8');
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    return [];
-  }
-}
-
-function writeReviews(reviews) {
-  ensureDataFile();
-  fs.writeFileSync(reviewsFile, JSON.stringify(reviews, null, 2), 'utf8');
 }
 
 // Simple hash function for anonymizing IPs
@@ -640,64 +727,6 @@ app.get('/api/visits/history', requireAdmin, (req, res) => {
 
 app.delete('/api/visits', requireAdmin, (req, res) => {
   writeVisits([]);
-  res.json({ success: true });
-});
-
-app.get('/api/reviews', (req, res) => {
-  const reviews = readReviews();
-  const publicOnly = req.query.public === 'true';
-  const visible = publicOnly ? reviews.filter(item => item.approved) : reviews;
-  res.json(visible);
-});
-
-app.post('/api/reviews', (req, res) => {
-  const { name, email, rating, review } = req.body;
-  if (!name || !review || !rating) {
-    return res.status(400).json({ error: 'Name, rating, and review are required.' });
-  }
-
-  const reviews = readReviews();
-  const entry = {
-    id: Date.now().toString() + Math.random().toString(16).slice(2),
-    name: name.trim(),
-    email: (email || '').trim(),
-    rating: Number(rating),
-    review: review.trim(),
-    approved: false,
-    createdAt: new Date().toISOString(),
-    reply: ''
-  };
-
-  reviews.unshift(entry);
-  writeReviews(reviews);
-  res.status(201).json(entry);
-});
-
-app.put('/api/reviews/:id', requireAdmin, (req, res) => {
-  const { id } = req.params;
-  const { approved, reply } = req.body;
-  const reviews = readReviews();
-  const item = reviews.find(entry => entry.id === id);
-  if (!item) {
-    return res.status(404).json({ error: 'Review not found.' });
-  }
-
-  if (typeof approved === 'boolean') item.approved = approved;
-  if (typeof reply === 'string') item.reply = reply;
-  writeReviews(reviews);
-  res.json(item);
-});
-
-app.delete('/api/reviews/:id', requireAdmin, (req, res) => {
-  const { id } = req.params;
-  const reviews = readReviews();
-  const index = reviews.findIndex(entry => entry.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Review not found.' });
-  }
-
-  reviews.splice(index, 1);
-  writeReviews(reviews);
   res.json({ success: true });
 });
 
