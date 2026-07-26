@@ -3,86 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SK Web Solutions | Admin Inbox</title>
+    <meta name="theme-color" content="#6c5ce7">
+    <title>NexusForge | Admin Dashboard</title>
     <link rel="stylesheet" href="Style.css">
 </head>
 <body>
-    <header class="site-header">
+    <header class="site-header" id="site-header">
         <div class="container header-inner">
-            <div class="brand"><span>SK</span> Web Solutions</div>
+            <a href="index.html" class="brand">
+                Nexus<span style="background: linear-gradient(135deg, var(--accent-teal), var(--accent-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Forge</span>
+                <span class="brand-tagline">Forge Your Digital Presence</span>
+            </a>
             <nav class="main-nav" id="main-nav">
                 <a href="index.html">Home</a>
                 <a href="index.html#services">Services</a>
                 <a href="index.html#work">Work</a>
-                <a href="gallery.html">Gallery</a>
                 <a href="index.html#contact">Contact</a>
             </nav>
-            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">☰ Menu</button>
         </div>
     </header>
 
     <main>
         <section class="section section-contact">
             <div class="container admin-grid">
-                <div class="contact-info card">
-                    <p class="eyebrow">Admin inbox</p>
+                <div class="contact-info glass-card">
+                    <p class="eyebrow">✦ Admin dashboard</p>
+                    <h2>NexusForge Admin Panel</h2>
+                    <p>Manage client messages, project gallery, and view website analytics.</p>
                 </div>
-                <div class="card" id="admin-login-card">
-                    <p class="eyebrow">Admin login</p>
-                    <h2>Enter credentials</h2>
+
+                <div class="glass-card" id="admin-login-card">
+                    <p class="eyebrow">✦ Admin login</p>
+                    <h2>Enter Credentials</h2>
                     <form id="admin-login-form">
                         <div class="form-group">
                             <label for="admin-username">Username</label>
-                            <input id="admin-username" type="text" placeholder="admin" value="admin" required>
+                            <input id="admin-username" type="text" placeholder="admin" required>
                         </div>
                         <div class="form-group">
                             <label for="admin-password">Password</label>
-                            <input id="admin-password" type="password" placeholder="Enter: admin@2024" required>
+                            <input id="admin-password" type="password" placeholder="Password" required>
                         </div>
                         <button type="submit" class="button button-primary">Login</button>
-                        <p id="admin-status" class="contact-note">
-                            <strong>Credentials:</strong><br>
-                            Username: <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">admin</code><br>
-                            Password: <code style="background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">admin@2024</code>
-                        </p>
+                        <p id="admin-status" class="contact-note">Use admin credentials to access the inbox.</p>
                     </form>
                 </div>
-
-                <div class="card admin-gallery hidden" id="admin-gallery-card">
-
-                    <p class="eyebrow">Projects Images Upload</p>
-                    <h2>Upload project images</h2>
-                    <form id="projects-upload-form" class="gallery-upload-form" enctype="multipart/form-data">
-                        <div class="form-group">
-                            <label for="project-name">Project name</label>
-                            <input id="project-name" name="projectName" type="text" placeholder="e.g. XIT View Interior" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="project-images">Images</label>
-                            <input id="project-images" name="images" type="file" multiple accept="image/*" required>
-                            <small>Upload JPG/PNG/WebP images.</small>
-                        </div>
-                        <button type="submit" class="button button-primary">Upload Images</button>
-                        <div id="projects-upload-status" class="client-notification hidden"></div>
-                    </form>
-                </div>
-
-                <div class="card admin-gallery-list hidden" id="admin-gallery-list-card">
-                    <p class="eyebrow">Uploaded Project Images</p>
-                    <h2>Manage uploads</h2>
-                    <div id="admin-projects-list" class="admin-gallery-list-grid"></div>
-                </div>
-
 
                 <!-- Visit Statistics Section -->
-                <div class="card admin-visit-stats hidden" id="admin-visit-stats">
+                <div class="glass-card admin-visit-stats hidden" id="admin-visit-stats">
                     <div class="admin-inbox-header">
                         <div>
-                            <p class="eyebrow">Analytics</p>
+                            <p class="eyebrow">✦ Analytics</p>
                             <h2>Website Visit Statistics</h2>
                         </div>
                         <div>
-                            <button id="refresh-visits" class="button button-secondary">Refresh</button>
+                            <button id="refresh-visits" class="button button-secondary">⟳ Refresh</button>
                             <button id="clear-visits" class="button button-secondary">Clear All</button>
                         </div>
                     </div>
@@ -94,11 +70,123 @@
                     </div>
                 </div>
 
-                <div class="card admin-inbox hidden" id="admin-inbox">
+                <!-- Project Gallery Upload (Hidden until login) -->
+                <div class="glass-card admin-upload-section hidden" id="admin-gallery-section">
                     <div class="admin-inbox-header">
                         <div>
-                            <p class="eyebrow">Inbox</p>
-                            <h2>Client messages</h2>
+                            <p class="eyebrow">✦ Project gallery</p>
+                            <h2>Upload & Manage Project Media</h2>
+                        </div>
+                    </div>
+                    <form id="project-upload-form" class="feedback-form" style="border: none; padding: 0; background: none;">
+                        <div class="form-group">
+                            <label for="project-title">Project title</label>
+                            <input id="project-title" type="text" placeholder="e.g. Retail website redesign" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-description">Short description</label>
+                            <textarea id="project-description" rows="3" placeholder="Describe the project and the client outcome" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="project-file">Choose one or more images or videos</label>
+                            <input id="project-file" type="file" accept="image/*,video/*" multiple required>
+                        </div>
+                        <button type="submit" class="button button-primary">Upload to gallery</button>
+                        <p id="project-upload-status" class="contact-note">Images and videos will be available to clients instantly.</p>
+                    </form>
+
+                    <div class="admin-gallery-manager">
+                        <div class="admin-inbox-header">
+                            <div>
+                                <p class="eyebrow">✦ Manage items</p>
+                                <h3>Delete Uploaded Gallery Items</h3>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Click Delete to remove media from the public gallery.</p>
+                            </div>
+                        </div>
+                        <div id="admin-gallery-list" class="admin-gallery-list"></div>
+                    </div>
+                </div>
+
+                <!-- Founder Image Manager (Hidden until login) -->
+                <div class="glass-card admin-upload-section hidden" id="admin-founder-section">
+                    <div class="admin-inbox-header">
+                        <div>
+                            <p class="eyebrow">✦ Founder card</p>
+                            <h2>Manage Founder Profile</h2>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Upload a new founder photo with crop. Changes appear instantly on the homepage.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Current preview -->
+                    <div id="founder-preview" style="text-align: center; margin-bottom: 1.5rem;">
+                        <div id="founder-preview-image" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 3px solid var(--glass-border); margin: 0 auto 0.75rem; background: var(--bg-tertiary);">
+                            <img src="Sarang.png" alt="Founder" id="founder-preview-img" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <p id="founder-preview-name" style="font-weight: 600; margin-bottom: 0.25rem;">Mr. Sarang Kumar</p>
+                        <p id="founder-preview-title" style="font-size: 0.85rem; color: var(--accent-teal); margin-bottom: 0;">Founder & Lead Developer</p>
+                    </div>
+
+                    <form id="founder-upload-form" class="feedback-form" style="border: none; padding: 0; background: none;">
+                        <div class="form-group">
+                            <label for="founder-name">Founder Name</label>
+                            <input id="founder-name" type="text" placeholder="e.g. Mr. Sarang Kumar">
+                        </div>
+                        <div class="form-group">
+                            <label for="founder-title-text">Title / Role</label>
+                            <input id="founder-title-text" type="text" placeholder="e.g. Founder & Lead Developer">
+                        </div>
+                        <div class="form-group">
+                            <label for="founder-tagline">Tagline</label>
+                            <input id="founder-tagline" type="text" placeholder="e.g. Building the future, one pixel at a time.">
+                        </div>
+                        <div class="form-group">
+                            <label for="founder-image-file">Choose new founder photo</label>
+                            <input id="founder-image-file" type="file" accept="image/*">
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                            <button type="submit" class="button button-primary" id="founder-save-btn">💾 Save Changes</button>
+                            <button type="button" class="button button-secondary" id="founder-reset-btn">↺ Reset to Default</button>
+                        </div>
+                        <p id="founder-upload-status" class="contact-note" style="margin-top: 0.75rem;">Changes appear instantly on the website homepage.</p>
+                    </form>
+                </div>
+
+                <!-- Crop Modal (reused by both gallery and founder) -->
+                <div id="crop-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal-content" style="max-width: 800px;">
+                        <div class="modal-header">
+                            <h3>✂️ Crop Image</h3>
+                            <button onclick="closeCropModal()" class="modal-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div style="max-height: 60vh; overflow: hidden;">
+                                <img id="crop-image" style="max-width: 100%; display: block;">
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+                                <button class="button button-secondary" type="button" onclick="setCropAspectRatio(1)">1:1</button>
+                                <button class="button button-secondary" type="button" onclick="setCropAspectRatio(4/3)">4:3</button>
+                                <button class="button button-secondary" type="button" onclick="setCropAspectRatio(16/9)">16:9</button>
+                                <button class="button button-secondary" type="button" onclick="setCropAspectRatio(NaN)">Free</button>
+                                <button class="button button-secondary" type="button" onclick="rotateCropImage(-90)">↺ Rotate</button>
+                                <button class="button button-secondary" type="button" onclick="rotateCropImage(90)">↻ Rotate</button>
+                                <button class="button button-secondary" type="button" onclick="flipCropImage('h')">⇔ Flip H</button>
+                                <button class="button button-secondary" type="button" onclick="flipCropImage('v')">⇕ Flip V</button>
+                                <button class="button button-secondary" type="button" onclick="resetCrop()">Reset</button>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="closeCropModal()" class="button button-secondary">Cancel</button>
+                            <button onclick="cropAndConfirm()" class="button button-primary">✅ Apply Crop</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Inbox -->
+                <div class="glass-card admin-inbox hidden" id="admin-inbox">
+                    <div class="admin-inbox-header">
+                        <div>
+                            <p class="eyebrow">✦ Inbox</p>
+                            <h2>Client Messages</h2>
                         </div>
                         <button id="admin-clear-messages" class="button button-secondary">Clear all</button>
                     </div>
@@ -111,36 +199,14 @@
 
     <footer class="site-footer">
         <div class="container footer-inner">
-            <p>© 2026 SK Web Solutions. Admin inbox for client messages.</p>
+            <p>© 2026 NexusForge. Admin dashboard for client message management.</p>
         </div>
     </footer>
 
+    <!-- Cropper.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <script src="script.js"></script>
-    <script>
-        // Debug helper for login
-        console.log('Admin page loaded');
-        console.log('Expected credentials:', {
-            username: 'admin',
-            password: 'admin@2024'
-        });
-        
-        // Check if form exists
-        const form = document.getElementById('admin-login-form');
-        if (form) {
-            console.log('Login form found successfully');
-            form.addEventListener('submit', function(e) {
-                const username = document.getElementById('admin-username')?.value.trim();
-                const password = document.getElementById('admin-password')?.value.trim();
-                console.log('Form submitted with:', {
-                    username: username,
-                    password: password,
-                    usernameMatch: username === 'admin',
-                    passwordMatch: password === 'admin@2024'
-                });
-            });
-        } else {
-            console.error('Login form not found');
-        }
-    </script>
 </body>
 </html>
+
