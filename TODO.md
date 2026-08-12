@@ -1,22 +1,9 @@
-# Wikipedia Data Sync — Implementation Progress
+# TODO - Projects images upload
 
-## ✅ All Steps Completed
+- [x] Backend: add simple images/project file upload + list + download + delete APIs in `server.js`.
 
-1. ✅ **server.js** — Wikipedia API endpoints added:
-   - `/api/wiki/featured` — Featured article + current events + on this day
-   - `/api/wiki/search?q=` — Search Wikipedia articles
-   - `/api/wiki/article?title=` — Get article summary
+- [ ] Frontend: ensure `projects.html` list renders from `/api/projects-images`.
+- [ ] Frontend: ensure admin upload uses `/api/projects-images/upload` and delete uses `/api/projects-images/image/:id`.
+- [ ] Cleanup: remove/disable old admin gallery functions (`loadAdminGalleryList`, `initProjectUpload`, etc.) from `script.js` if they break new UI.
+- [ ] Verify: upload -> appears on `projects.html` -> download works -> delete removes.
 
-2. ✅ **index.html** — "Wikipedia Knowledge" section added with 4 tabs:
-   - 📖 Featured Article
-   - 🌍 Current Events
-   - 📅 On This Day
-   - 🔍 Search Wikipedia
-
-3. ✅ **script.js** — `initWikiSection()` + all render/search functions
-
-4. ✅ **Style.css** — Complete Wikipedia styles + **enhanced mobile responsiveness**
-
-5. ✅ **admin.html** — Gallery upload/delete section now hidden until login
-
-6. ✅ **script.js** — `initAdminLogin()` now shows gallery section after login
