@@ -15,6 +15,144 @@ const USE_LOCAL_STORAGE = true; // Set to false when using actual server
 // Local storage keys
 const STORAGE_KEY = 'sk_web_messages';
 const GALLERY_STORAGE_KEY = 'sk_web_gallery';
+const OWNER_TOKEN_KEY = 'sk_owner_jwt';
+const DEMO_OWNER_TOKEN = 'demo-owner-token';
+const OWNER_FALLBACK_ADS_KEY = 'sk_owner_fallback_ads';
+const OWNER_FALLBACK_AUDIT_KEY = 'sk_owner_fallback_audit';
+
+const DEFAULT_OWNER_FALLBACK_ADS = [
+    {
+        id: 'demo-ad-1',
+        title: 'XIT View Interior',
+        subtitle: 'Premium Interior Design',
+        description: 'Premium interior design and turnkey solutions for homes, offices, retail and commercial spaces.',
+        contact: '+91 9032434349',
+        status: 'active',
+        imageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
+        imageAlt: 'Interior design project showcase',
+        buttonText: 'Contact Owner',
+        buttonUrl: 'tel:+919032434349',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'owner'
+    },
+    {
+        id: 'demo-ad-game',
+        title: 'SK Crazy Game',
+        subtitle: 'Game Zone',
+        description: 'Enjoy a fun browser gaming experience with quick access to exciting online games.',
+        contact: '',
+        status: 'active',
+        imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
+        imageAlt: 'Game zone showcase',
+        buttonText: 'SK crazy game',
+        buttonUrl: 'https://www.crazygames.com/',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'owner'
+    },
+    {
+        id: 'demo-ad-2',
+        title: 'RetailLaunch',
+        subtitle: 'E-commerce Growth',
+        description: 'Modern storefront redesign and product-focused landing pages built to improve conversion and brand trust.',
+        contact: '',
+        status: 'active',
+        imageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80',
+        imageAlt: 'E-commerce project showcase',
+        buttonText: 'View Details',
+        buttonUrl: 'https://www.instagram.com/sk_developer7?igsi=MTkybjd3b3FybDMzZw==',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'owner'
+    },
+    {
+        id: 'demo-ad-3',
+        title: 'EduNest',
+        subtitle: 'Education Portal',
+        description: 'Clear, responsive student portal design focused on engagement, course discovery, and lead generation.',
+        contact: '',
+        status: 'active',
+        imageUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80',
+        imageAlt: 'Education platform project showcase',
+        buttonText: 'Book a Demo',
+        buttonUrl: 'mailto:Skwebdeveloper@proton.me',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'owner'
+    }
+];
+
+function isOwnerDemoMode() {
+    return getOwnerToken() === DEMO_OWNER_TOKEN || window.location.protocol === 'file:';
+}
+
+function getFallbackOwnerAds() {
+    try {
+        const saved = localStorage.getItem(OWNER_FALLBACK_ADS_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (error) {
+        console.warn('Unable to parse fallback ads:', error);
+    }
+
+    localStorage.setItem(OWNER_FALLBACK_ADS_KEY, JSON.stringify(DEFAULT_OWNER_FALLBACK_ADS));
+    return [...DEFAULT_OWNER_FALLBACK_ADS];
+}
+
+function saveFallbackOwnerAds(ads) {
+    localStorage.setItem(OWNER_FALLBACK_ADS_KEY, JSON.stringify(ads));
+}
+
+function getFallbackOwnerAudit() {
+    try {
+        const saved = localStorage.getItem(OWNER_FALLBACK_AUDIT_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (error) {
+        console.warn('Unable to parse fallback audit log:', error);
+    }
+
+    const initial = [{
+        id: 'demo-log-1',
+        action: 'LOGIN',
+        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
+        details: { username: 'owner' },
+        timestamp: new Date().toISOString()
+    }];
+    localStorage.setItem(OWNER_FALLBACK_AUDIT_KEY, JSON.stringify(initial));
+    return initial;
+}
+
+function saveFallbackOwnerAudit(logs) {
+    localStorage.setItem(OWNER_FALLBACK_AUDIT_KEY, JSON.stringify(logs));
+}
+
+function getOwnerToken() {
+    return localStorage.getItem(OWNER_TOKEN_KEY) || '';
+}
+
+function setOwnerToken(token) {
+    if (token) {
+        localStorage.setItem(OWNER_TOKEN_KEY, token);
+    } else {
+        localStorage.removeItem(OWNER_TOKEN_KEY);
+    }
+}
+
+function buildOwnerHeaders(includeJson = true) {
+    const headers = {};
+    const token = getOwnerToken();
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+    if (includeJson) {
+        headers['Content-Type'] = 'application/json';
+    }
+    return headers;
+}
 
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
@@ -36,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (document.getElementById('admin-inbox')) {
         initAdminInbox();
+        loadAdminMessages();
     }
 
     if (document.getElementById('gallery-page')) {
@@ -62,9 +201,24 @@ document.addEventListener('DOMContentLoaded', function() {
         loadVisitorCount();
     }
 
+    // Initialize crop controls for the avatar
+    initImageCropControls();
+
     // Initialize visit stats on admin page
     if (document.getElementById('admin-visit-stats')) {
         initVisitStats();
+    }
+
+    if (document.getElementById('owner-ads-grid')) {
+        initOwnerAdsFrontend();
+    }
+
+    if (document.getElementById('owner-login-form')) {
+        initOwnerLogin();
+    }
+
+    if (document.getElementById('owner-dashboard')) {
+        initOwnerDashboard();
     }
 });
 
@@ -79,9 +233,577 @@ function getMessagesFromStorage() {
     }
 }
 
+async function initOwnerAdsFrontend() {
+    const grid = document.getElementById('owner-ads-grid');
+    if (!grid) return;
+
+    const renderAds = (ads) => {
+        const activeAds = (ads || []).filter(ad => ad.status !== 'draft' && ad.status !== 'archived');
+
+        if (!activeAds.length) {
+            grid.innerHTML = '<article class="case-card"><div class="case-badge">Owner</div><h3>No active ads</h3><p>Owner-managed upcoming project ads will appear here once created.</p></article>';
+            return;
+        }
+
+        grid.innerHTML = activeAds.map(ad => {
+            const image = ad.imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80';
+            const title = escapeHtml(ad.title || 'Project Ad');
+            const subtitle = escapeHtml(ad.subtitle || 'Upcoming Project');
+            const description = escapeHtml(ad.description || 'Project details coming soon.');
+            const contact = escapeHtml(ad.contact || 'Contact available on request');
+            const buttonText = escapeHtml(ad.buttonText || 'Contact Owner');
+            const buttonUrl = escapeHtml(ad.buttonUrl || 'tel:+919000000000');
+
+            return `
+                <article class="case-card" style="background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.08)), url('${image}');">
+                    <div class="case-badge">${subtitle}</div>
+                    <h3>${title}</h3>
+                    <p>${description}${contact ? `<br><strong>${contact}</strong>` : ''}</p>
+                    <div style="margin-top:1rem;">
+                        <a class="button button-secondary" href="${buttonUrl}" target="_blank" rel="noopener noreferrer">${buttonText}</a>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    };
+
+    const fallbackRender = () => {
+        const fallbackAds = getFallbackOwnerAds();
+        renderAds(fallbackAds);
+    };
+
+    try {
+        const response = await fetch('/api/ads');
+        if (!response.ok) throw new Error('Failed to load ads');
+        const ads = await response.json();
+        renderAds(ads);
+    } catch (error) {
+        console.warn('Owner ads frontend load failed, using fallback data:', error);
+        fallbackRender();
+    }
+
+    setInterval(async () => {
+        try {
+            const response = await fetch('/api/ads');
+            if (!response.ok) {
+                fallbackRender();
+                return;
+            }
+            const ads = await response.json();
+            renderAds(ads);
+        } catch (error) {
+            console.warn('Owner ads refresh error, using fallback data:', error);
+            fallbackRender();
+        }
+    }, 15000);
+}
+
+async function initOwnerLogin() {
+    const form = document.getElementById('owner-login-form');
+    const status = document.getElementById('owner-login-status');
+    const card = document.getElementById('owner-login-card');
+    const dashboard = document.getElementById('owner-dashboard');
+
+    if (!form) return;
+
+    const showDashboard = async () => {
+        if (card) card.classList.add('hidden');
+        if (dashboard) dashboard.classList.remove('hidden');
+        await initOwnerDashboard();
+    };
+
+    if (getOwnerToken()) {
+        showDashboard();
+        return;
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const username = document.getElementById('owner-username').value.trim();
+        const password = document.getElementById('owner-password').value.trim();
+
+        try {
+            const response = await fetch('/api/owner/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Invalid credentials');
+            }
+
+            setOwnerToken(data.token);
+            if (status) {
+                status.textContent = 'Owner login successful.';
+                status.style.color = '#10b981';
+            }
+            await showDashboard();
+        } catch (error) {
+            if (username === 'owner' && password === 'Owner@2026') {
+                setOwnerToken(DEMO_OWNER_TOKEN);
+                if (status) {
+                    status.textContent = 'Owner login successful. Demo mode activated.';
+                    status.style.color = '#10b981';
+                }
+                await showDashboard();
+                return;
+            }
+
+            if (status) {
+                status.textContent = error.message || 'Login failed.';
+                status.style.color = '#ef4444';
+            }
+        }
+    });
+}
+
+async function initOwnerDashboard() {
+    const dashboard = document.getElementById('owner-dashboard');
+    const summaryGrid = document.getElementById('owner-summary-grid');
+    const adsList = document.getElementById('owner-ads-list');
+    const auditLog = document.getElementById('owner-audit-log');
+    const refreshBtn = document.getElementById('owner-refresh');
+    const logoutBtn = document.getElementById('owner-logout');
+    const newAdBtn = document.getElementById('owner-new-ad');
+
+    if (!dashboard) {
+        return;
+    }
+
+    if (document.getElementById('admin-message-list')) {
+        loadAdminMessages();
+    }
+
+    if (document.getElementById('admin-inbox')) {
+        initAdminInbox();
+    }
+
+    const loadOwnerData = async () => {
+        try {
+            let ads = [];
+            let audit = [];
+
+            if (isOwnerDemoMode()) {
+                ads = getFallbackOwnerAds();
+                audit = getFallbackOwnerAudit();
+            } else {
+                const [adsResponse, auditResponse] = await Promise.all([
+                    fetch('/api/owner/ads', { headers: buildOwnerHeaders(false) }),
+                    fetch('/api/owner/audit', { headers: buildOwnerHeaders(false) })
+                ]);
+
+                if (!adsResponse.ok || !auditResponse.ok) {
+                    throw new Error('Owner session expired');
+                }
+
+                ads = await adsResponse.json();
+                audit = await auditResponse.json();
+            }
+
+            const active = ads.filter(ad => ad.status === 'active').length;
+            const draft = ads.filter(ad => ad.status === 'draft').length;
+            const archived = ads.filter(ad => ad.status === 'archived').length;
+
+            if (summaryGrid) {
+                summaryGrid.innerHTML = `
+                    <div class="owner-stat-card"><strong>${ads.length}</strong><span>Total ads</span></div>
+                    <div class="owner-stat-card"><strong>${active}</strong><span>Active</span></div>
+                    <div class="owner-stat-card"><strong>${draft}</strong><span>Draft</span></div>
+                    <div class="owner-stat-card"><strong>${archived}</strong><span>Archived</span></div>
+                `;
+            }
+
+            if (adsList) {
+                adsList.innerHTML = ads.length ? ads.map(ad => `
+                    <article class="owner-ad-item">
+                        <div class="owner-ad-media">
+                            <img src="${escapeHtml(ad.imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80')}" alt="${escapeHtml(ad.imageAlt || ad.title || 'Project ad')}" />
+                        </div>
+                        <div class="owner-ad-content">
+                            <div class="owner-ad-header">
+                                <div>
+                                    <h4>${escapeHtml(ad.title || 'Untitled Ad')}</h4>
+                                    <p>${escapeHtml(ad.subtitle || 'Upcoming project')}</p>
+                                </div>
+                                <span class="owner-status owner-status-${escapeHtml(ad.status || 'active')}">${escapeHtml(ad.status || 'active')}</span>
+                            </div>
+                            <p>${escapeHtml(ad.description || '')}</p>
+                            <div class="owner-ad-meta">
+                                <span>${escapeHtml(ad.contact || 'No contact')}</span>
+                                <span>${new Date(ad.updatedAt || ad.createdAt).toLocaleString()}</span>
+                            </div>
+                            <div class="owner-ad-actions">
+                                <button class="button button-secondary owner-edit-btn" type="button" data-id="${ad.id}">Edit</button>
+                                <button class="button button-secondary owner-delete-btn" type="button" data-id="${ad.id}">Delete</button>
+                            </div>
+                        </div>
+                    </article>
+                `).join('') : '<p class="contact-note">No project ads yet. Create one to populate the homepage.</p>';
+
+                adsList.querySelectorAll('.owner-edit-btn').forEach(button => {
+                    button.addEventListener('click', () => openOwnerAdModal(button.dataset.id));
+                });
+
+                adsList.querySelectorAll('.owner-delete-btn').forEach(button => {
+                    button.addEventListener('click', async () => {
+                        if (!confirm('Delete this owner-managed ad?')) return;
+                        try {
+                            if (isOwnerDemoMode()) {
+                                const nextAds = getFallbackOwnerAds().filter(ad => ad.id !== button.dataset.id);
+                                saveFallbackOwnerAds(nextAds);
+                                const logEntry = {
+                                    id: `demo-log-${Date.now()}`,
+                                    action: 'DELETE_AD',
+                                    actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
+                                    details: { deletedId: button.dataset.id },
+                                    timestamp: new Date().toISOString()
+                                };
+                                const nextAudit = [logEntry, ...getFallbackOwnerAudit()].slice(0, 25);
+                                saveFallbackOwnerAudit(nextAudit);
+                                await loadOwnerData();
+                                await initOwnerAdsFrontend();
+                                return;
+                            }
+
+                            const response = await fetch(`/api/owner/ads/${button.dataset.id}`, {
+                                method: 'DELETE',
+                                headers: buildOwnerHeaders(false)
+                            });
+                            const data = await response.json();
+                            if (!response.ok) throw new Error(data.error || 'Delete failed');
+                            await loadOwnerData();
+                            await initOwnerAdsFrontend();
+                        } catch (error) {
+                            alert(error.message || 'Delete failed.');
+                        }
+                    });
+                });
+            }
+
+            if (auditLog) {
+                auditLog.innerHTML = audit.length ? audit.map(entry => `
+                    <div class="audit-entry">
+                        <strong>${escapeHtml(entry.action)}</strong>
+                        <small>${new Date(entry.timestamp).toLocaleString()}</small>
+                        <p>${escapeHtml(entry.actor && entry.actor.username ? entry.actor.username : 'system')}</p>
+                    </div>
+                `).join('') : '<p class="contact-note">No audit entries yet.</p>';
+            }
+        } catch (error) {
+            setOwnerToken('');
+            if (dashboard) dashboard.classList.remove('hidden');
+            const status = document.getElementById('owner-login-status');
+            if (status) {
+                status.textContent = 'Owner session expired. Please refresh the page.';
+                status.style.color = '#ef4444';
+            }
+        }
+    };
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadOwnerData);
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            setOwnerToken('');
+            if (dashboard) dashboard.classList.remove('hidden');
+        });
+    }
+
+    if (newAdBtn) {
+        newAdBtn.addEventListener('click', () => openOwnerAdModal());
+    }
+
+    const quickForm = document.getElementById('quick-owner-ad-form');
+    if (quickForm) {
+        quickForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const payload = {
+                title: document.getElementById('quick-owner-title').value.trim(),
+                subtitle: document.getElementById('quick-owner-subtitle').value.trim(),
+                description: document.getElementById('quick-owner-description').value.trim(),
+                contact: document.getElementById('quick-owner-contact').value.trim(),
+                imageUrl: document.getElementById('quick-owner-image-url').value.trim(),
+                imageAlt: document.getElementById('quick-owner-title').value.trim(),
+                buttonText: 'Contact Owner',
+                buttonUrl: 'tel:+919000000000',
+                status: 'active'
+            };
+
+            if (!payload.title || !payload.description) {
+                alert('Project title and description are required.');
+                return;
+            }
+
+            try {
+                if (isOwnerDemoMode()) {
+                    const ads = getFallbackOwnerAds();
+                    const now = new Date().toISOString();
+                    const nextAds = [{
+                        id: `demo-ad-${Date.now()}`,
+                        ...payload,
+                        createdAt: now,
+                        updatedAt: now,
+                        createdBy: 'owner'
+                    }, ...ads];
+                    saveFallbackOwnerAds(nextAds);
+                    const logEntry = {
+                        id: `demo-log-${Date.now()}`,
+                        action: 'CREATE_AD',
+                        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
+                        details: { id: nextAds[0].id, title: payload.title },
+                        timestamp: now
+                    };
+                    saveFallbackOwnerAudit([logEntry, ...getFallbackOwnerAudit()].slice(0, 25));
+                    quickForm.reset();
+                    await loadOwnerData();
+                    await initOwnerAdsFrontend();
+                    return;
+                }
+
+                const response = await fetch('/api/owner/ads', {
+                    method: 'POST',
+                    headers: buildOwnerHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Save failed');
+                quickForm.reset();
+                await loadOwnerData();
+                await initOwnerAdsFrontend();
+            } catch (error) {
+                alert(error.message || 'Unable to save project.');
+            }
+        });
+    }
+
+    const modal = document.getElementById('owner-ad-modal');
+    const form = document.getElementById('owner-ad-form');
+    const modalClose = document.getElementById('owner-modal-close');
+    const cancelBtn = document.getElementById('owner-cancel-edit');
+
+    const resetModal = () => {
+        if (form) form.reset();
+        const idInput = document.getElementById('owner-ad-id');
+        if (idInput) idInput.value = '';
+        document.getElementById('owner-ad-modal-title').textContent = 'Create Project Ad';
+        if (modal) modal.classList.add('hidden');
+    };
+
+    if (modalClose) modalClose.addEventListener('click', resetModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', resetModal);
+
+    if (form) {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const id = document.getElementById('owner-ad-id').value;
+            const payload = {
+                title: document.getElementById('owner-ad-title').value.trim(),
+                subtitle: document.getElementById('owner-ad-subtitle').value.trim(),
+                description: document.getElementById('owner-ad-description').value.trim(),
+                contact: document.getElementById('owner-ad-contact').value.trim(),
+                imageUrl: document.getElementById('owner-ad-image-url').value.trim(),
+                imageAlt: document.getElementById('owner-ad-image-alt').value.trim(),
+                buttonText: document.getElementById('owner-ad-button-text').value.trim(),
+                buttonUrl: document.getElementById('owner-ad-button-url').value.trim(),
+                status: document.getElementById('owner-ad-status').value
+            };
+
+            if (!payload.title || !payload.description) {
+                alert('Title and description are required.');
+                return;
+            }
+
+            try {
+                if (isOwnerDemoMode()) {
+                    const ads = getFallbackOwnerAds();
+                    const timestamp = new Date().toISOString();
+                    const nextAds = id
+                        ? ads.map(ad => ad.id === id ? { ...ad, ...payload, updatedAt: timestamp, updatedBy: 'owner' } : ad)
+                        : [{
+                            id: `demo-ad-${Date.now()}`,
+                            ...payload,
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                            createdBy: 'owner'
+                          }, ...ads];
+
+                    saveFallbackOwnerAds(nextAds);
+                    const logEntry = {
+                        id: `demo-log-${Date.now()}`,
+                        action: id ? 'UPDATE_AD' : 'CREATE_AD',
+                        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
+                        details: { id: id || nextAds[0].id, title: payload.title },
+                        timestamp
+                    };
+                    const nextAudit = [logEntry, ...getFallbackOwnerAudit()].slice(0, 25);
+                    saveFallbackOwnerAudit(nextAudit);
+                    resetModal();
+                    await loadOwnerData();
+                    await initOwnerAdsFrontend();
+                    return;
+                }
+
+                const response = await fetch(id ? `/api/owner/ads/${id}` : '/api/owner/ads', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: buildOwnerHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Save failed');
+                resetModal();
+                await loadOwnerData();
+                await initOwnerAdsFrontend();
+            } catch (error) {
+                alert(error.message || 'Unable to save ad.');
+            }
+        });
+    }
+
+    await loadOwnerData();
+}
+
+function openOwnerAdModal(adId = null) {
+    const modal = document.getElementById('owner-ad-modal');
+    const titleEl = document.getElementById('owner-ad-modal-title');
+    const idInput = document.getElementById('owner-ad-id');
+
+    if (!modal) return;
+
+    const form = document.getElementById('owner-ad-form');
+    if (!form) return;
+
+    if (!adId) {
+        form.reset();
+        idInput.value = '';
+        titleEl.textContent = 'Create Project Ad';
+        document.getElementById('owner-ad-status').value = 'active';
+        document.getElementById('owner-ad-button-text').value = 'Contact Owner';
+        modal.classList.remove('hidden');
+        return;
+    }
+
+    if (isOwnerDemoMode()) {
+        const ads = getFallbackOwnerAds();
+        const ad = ads.find(item => item.id === adId);
+        if (!ad) return;
+        idInput.value = ad.id;
+        document.getElementById('owner-ad-title').value = ad.title || '';
+        document.getElementById('owner-ad-subtitle').value = ad.subtitle || '';
+        document.getElementById('owner-ad-description').value = ad.description || '';
+        document.getElementById('owner-ad-contact').value = ad.contact || '';
+        document.getElementById('owner-ad-image-url').value = ad.imageUrl || '';
+        document.getElementById('owner-ad-image-alt').value = ad.imageAlt || '';
+        document.getElementById('owner-ad-button-text').value = ad.buttonText || 'Contact Owner';
+        document.getElementById('owner-ad-button-url').value = ad.buttonUrl || '';
+        document.getElementById('owner-ad-status').value = ad.status || 'active';
+        titleEl.textContent = 'Edit Project Ad';
+        modal.classList.remove('hidden');
+        return;
+    }
+
+    fetch(`/api/owner/ads`, { headers: buildOwnerHeaders(false) })
+        .then(response => response.json())
+        .then(ads => {
+            const ad = ads.find(item => item.id === adId);
+            if (!ad) return;
+            idInput.value = ad.id;
+            document.getElementById('owner-ad-title').value = ad.title || '';
+            document.getElementById('owner-ad-subtitle').value = ad.subtitle || '';
+            document.getElementById('owner-ad-description').value = ad.description || '';
+            document.getElementById('owner-ad-contact').value = ad.contact || '';
+            document.getElementById('owner-ad-image-url').value = ad.imageUrl || '';
+            document.getElementById('owner-ad-image-alt').value = ad.imageAlt || '';
+            document.getElementById('owner-ad-button-text').value = ad.buttonText || 'Contact Owner';
+            document.getElementById('owner-ad-button-url').value = ad.buttonUrl || '';
+            document.getElementById('owner-ad-status').value = ad.status || 'active';
+            titleEl.textContent = 'Edit Project Ad';
+            modal.classList.remove('hidden');
+        })
+        .catch(() => alert('Unable to load ad details.'));
+}
+
+// Image crop controls: allow adjusting object-position for the circular avatar
+function initImageCropControls() {
+    const img = document.querySelector('.hero-image');
+    const panel = document.getElementById('crop-panel');
+    const toggle = document.getElementById('crop-toggle');
+    const closeBtn = document.getElementById('crop-close');
+    const resetBtn = document.getElementById('crop-reset');
+    const inputX = document.getElementById('crop-x');
+    const inputY = document.getElementById('crop-y');
+    if (!img || !panel || !toggle || !inputX || !inputY) return;
+
+    // Load saved position or defaults
+    const saved = localStorage.getItem('avatarPos');
+    let pos = { x: 50, y: 22 };
+    try { if (saved) pos = JSON.parse(saved); } catch (e) {}
+
+    function applyPos() {
+        img.style.objectPosition = `${pos.x}% ${pos.y}%`;
+        inputX.value = pos.x;
+        inputY.value = pos.y;
+    }
+
+    applyPos();
+
+    // Toggle panel
+    toggle.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+    });
+    closeBtn.addEventListener('click', () => panel.classList.add('hidden'));
+
+    // Update handlers
+    inputX.addEventListener('input', () => { pos.x = parseInt(inputX.value, 10); applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
+    inputY.addEventListener('input', () => { pos.y = parseInt(inputY.value, 10); applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
+
+    resetBtn.addEventListener('click', () => { pos = { x:50, y:22 }; applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
+}
+
+// Fetch a local LinkedIn profile JSON (or server-provided) and render About Me
+async function loadLinkedInAbout() {
+    const container = document.getElementById('about-me');
+    if (!container) return;
+
+    // Provide the LinkedIn feed/profile URL you want to use
+    const linkedInUrl = 'https://www.linkedin.com/feed/';
+
+    try {
+        const resp = await fetch(`/api/about/linkedin?url=${encodeURIComponent(linkedInUrl)}`);
+        if (!resp.ok) throw new Error('No profile data');
+        const profile = await resp.json();
+
+        const name = profile.name || profile.fullName || 'SK Web Solutions';
+        const headline = profile.headline || profile.title || '';
+        const summary = profile.summary || profile.bio || profile.description || '';
+        const location = profile.location || '';
+        const picture = profile.profilePicture || profile.avatar || '/Founder1.jpeg';
+
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;gap:1rem;">
+                <img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;"> 
+                <div>
+                    <strong style="display:block">${escapeHtml(name)}</strong>
+                    <small style="color:var(--text-light);display:block">${escapeHtml(headline)} ${location ? ' • ' + escapeHtml(location) : ''}</small>
+                </div>
+            </div>
+            <p style="margin-top:0.75rem;color:var(--text-light);">${escapeHtml(summary)} <a href="${escapeHtml(linkedInUrl)}" target="_blank" rel="noopener noreferrer">View on LinkedIn</a></p>
+        `;
+    } catch (error) {
+        container.innerHTML = '<p>Professional updates and profile details will appear here.</p>';
+    }
+}
+
 function saveMessagesToStorage(messages) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+        window.dispatchEvent(new CustomEvent('sk-messages-updated', {
+            detail: { key: STORAGE_KEY, messages }
+        }));
     } catch (e) {
         console.error('Error saving to localStorage:', e);
     }
@@ -190,10 +912,14 @@ function initContactForm() {
                     <strong>Reference ID:</strong> ${data.id}<br>
                     <strong>Status:</strong> ${data.status}<br>
                     <strong>Message:</strong> ${data.responseMessage}<br>
-                    <small>Use the "Check meeting status" section below to check updates using your contact info.</small>
+                    <small>We will review your request and get back to you soon.</small>
                 `;
                 clientNotification.classList.remove('hidden');
             }, 1000);
+
+            if (document.getElementById('admin-message-list')) {
+                loadAdminMessages();
+            }
 
             // Hide success message after 5 seconds
             setTimeout(() => {
@@ -300,33 +1026,54 @@ function initAdminLogin() {
 
     if (!loginForm) return;
 
+    const unlockAdminDashboard = () => {
+        if (loginCard) loginCard.classList.add('hidden');
+
+        const visitStatsSection = document.getElementById('admin-visit-stats');
+        if (visitStatsSection) {
+            visitStatsSection.classList.remove('hidden');
+            initVisitStats();
+        }
+
+        const galleryCard = document.getElementById('admin-gallery-card');
+        if (galleryCard) galleryCard.classList.remove('hidden');
+
+        const galleryListCard = document.getElementById('admin-gallery-list-card');
+        if (galleryListCard) galleryListCard.classList.remove('hidden');
+
+        if (inboxSection) inboxSection.classList.remove('hidden');
+
+        if (statusMessage) {
+            statusMessage.textContent = 'Logged in successfully.';
+            statusMessage.style.color = 'var(--success-color)';
+        }
+
+        localStorage.setItem('sk_admin_authenticated', 'true');
+
+        loadAdminMessages();
+        loadAdminGalleryList();
+    };
+
+    if (localStorage.getItem('sk_admin_authenticated') === 'true') {
+        unlockAdminDashboard();
+        return;
+    }
+
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
 
-        const username = document.getElementById('admin-username').value.trim();
-        const password = document.getElementById('admin-password').value;
+        const username = (document.getElementById('admin-username')?.value || '').trim().toLowerCase();
+        const password = (document.getElementById('admin-password')?.value || '').trim();
 
-        if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-            loginCard.classList.add('hidden');
-            // Show both visit stats and inbox after login
-            const visitStatsSection = document.getElementById('admin-visit-stats');
-            if (visitStatsSection) {
-                visitStatsSection.classList.remove('hidden');
-                // Initialize visit stats after login when section becomes visible
-                initVisitStats();
-            }
-            const galleryCard = document.getElementById('admin-gallery-card');
-            if (galleryCard) {
-                galleryCard.classList.remove('hidden');
-            }
-            inboxSection.classList.remove('hidden');
-            statusMessage.textContent = 'Logged in successfully.';
-            statusMessage.style.color = 'var(--success-color)';
-            
-            // Load messages and gallery projects
-            loadAdminMessages();
-            loadAdminGalleryList();
-        } else {
+        const expectedUsername = (ADMIN_CREDENTIALS.username || 'admin').trim().toLowerCase();
+        const expectedPassword = (ADMIN_CREDENTIALS.password || 'admin123').trim();
+
+        if (username === expectedUsername && password === expectedPassword) {
+            unlockAdminDashboard();
+            return;
+        }
+
+        if (statusMessage) {
             statusMessage.textContent = 'Invalid credentials. Please try again.';
             statusMessage.style.color = 'var(--error-color)';
         }
@@ -336,6 +1083,17 @@ function initAdminLogin() {
 // Admin Inbox
 function initAdminInbox() {
     const clearBtn = document.getElementById('admin-clear-messages');
+    const refreshBtn = document.getElementById('admin-refresh-messages');
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadAdminMessages();
+            refreshBtn.textContent = 'Refreshing...';
+            setTimeout(() => {
+                refreshBtn.textContent = 'Refresh';
+            }, 600);
+        });
+    }
 
     if (clearBtn) {
         clearBtn.addEventListener('click', async function() {
@@ -359,6 +1117,7 @@ function initAdminInbox() {
 
                 // Clear localStorage
                 localStorage.removeItem(STORAGE_KEY);
+                window.dispatchEvent(new CustomEvent('sk-messages-updated', { detail: { key: STORAGE_KEY } }));
                 loadAdminMessages();
             } catch (error) {
                 console.error('Error:', error);
@@ -366,6 +1125,24 @@ function initAdminInbox() {
             }
         });
     }
+
+    window.addEventListener('storage', function(event) {
+        if (event.key === STORAGE_KEY && document.getElementById('admin-message-list')) {
+            loadAdminMessages();
+        }
+    });
+
+    window.addEventListener('sk-messages-updated', function() {
+        if (document.getElementById('admin-message-list')) {
+            loadAdminMessages();
+        }
+    });
+
+    setInterval(() => {
+        if (document.getElementById('admin-message-list')) {
+            loadAdminMessages();
+        }
+    }, 3000);
 }
 
 // Load Admin Messages (works with localStorage for demo)
@@ -546,7 +1323,7 @@ async function deleteAdminGalleryProject(projectId) {
     }
 }
 
-function updateMessageStatus(messageId, status) {
+async function updateMessageStatus(messageId, status) {
     try {
         // Try server first
         try {

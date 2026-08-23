@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const archiver = require('archiver');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,6 +12,10 @@ const galleryDir = path.join(dataDir, 'gallery_files');
 const messagesFile = path.join(dataDir, 'messages.json');
 const visitsFile = path.join(dataDir, 'visits.json');
 const galleryFile = path.join(dataDir, 'gallery.json');
+const ownerUsersFile = path.join(dataDir, 'owners.json');
+const ownerAdsFile = path.join(dataDir, 'project_ads.json');
+const ownerAuditFile = path.join(dataDir, 'owner_audit.json');
+const JWT_SECRET = process.env.JWT_SECRET || 'sk-web-owner-secret-2026';
 
 // Simple projects-images upload
 const projectsImagesDir = path.join(dataDir, 'projects_images');
@@ -36,6 +41,42 @@ function ensureDataFile() {
     if (!fs.existsSync(galleryFile)) {
         fs.writeFileSync(galleryFile, '[]', 'utf8');
     }
+    if (!fs.existsSync(ownerUsersFile)) {
+        const defaultOwner = [{
+            id: 'owner-1',
+            username: 'owner',
+            password: 'Owner@2026',
+            email: 'owner@skwebsolutions.com',
+            role: 'OWNER',
+            firstName: 'Sarang',
+            lastName: 'Kumar',
+            active: true,
+            createdAt: new Date().toISOString()
+        }];
+        fs.writeFileSync(ownerUsersFile, JSON.stringify(defaultOwner, null, 2), 'utf8');
+    }
+    if (!fs.existsSync(ownerAdsFile)) {
+        fs.writeFileSync(ownerAdsFile, JSON.stringify([
+            {
+                id: 'seed-ad-1',
+                title: 'XIT View Interior',
+                subtitle: 'Premium Interior Design',
+                description: 'Premium Interior Design & Turnkey Solutions for Homes, Offices, Retail Stores, and Commercial Spaces.',
+                contact: '+91 9032434349',
+                status: 'active',
+                imageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
+                imageAlt: 'Interior design project showcase',
+                buttonText: 'Contact Owner',
+                buttonUrl: 'tel:+919032434349',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                createdBy: 'owner'
+            }
+        ], null, 2), 'utf8');
+    }
+    if (!fs.existsSync(ownerAuditFile)) {
+        fs.writeFileSync(ownerAuditFile, JSON.stringify([], null, 2), 'utf8');
+    }
 
     // Projects-images storage
     if (!fs.existsSync(projectsImagesFile)) {
@@ -46,6 +87,92 @@ function ensureDataFile() {
     }
 }
 
+function readOwnerUsers() {
+    ensureDataFile();
+    try {
+        return JSON.parse(fs.readFileSync(ownerUsersFile, 'utf8'));
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeOwnerUsers(users) {
+    ensureDataFile();
+    fs.writeFileSync(ownerUsersFile, JSON.stringify(users, null, 2), 'utf8');
+}
+
+function readOwnerAds() {
+    ensureDataFile();
+    try {
+        return JSON.parse(fs.readFileSync(ownerAdsFile, 'utf8'));
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeOwnerAds(ads) {
+    ensureDataFile();
+    fs.writeFileSync(ownerAdsFile, JSON.stringify(ads, null, 2), 'utf8');
+}
+
+function readAuditLogs() {
+    ensureDataFile();
+    try {
+        return JSON.parse(fs.readFileSync(ownerAuditFile, 'utf8'));
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeAuditLogs(logs) {
+    ensureDataFile();
+    fs.writeFileSync(ownerAuditFile, JSON.stringify(logs, null, 2), 'utf8');
+}
+
+function logOwnerAudit(action, details = {}, actor = null) {
+    const logs = readAuditLogs();
+    logs.unshift({
+        id: Date.now().toString() + Math.random().toString(16).slice(2),
+        action,
+        actor: actor ? { id: actor.id, username: actor.username, role: actor.role } : { id: 'system', username: 'system', role: 'SYSTEM' },
+        details,
+        timestamp: new Date().toISOString()
+    });
+    writeAuditLogs(logs.slice(0, 100));
+}
+
+function createOwnerToken(user) {
+    return jwt.sign({
+        sub: user.id,
+        id: user.id,
+        username: user.username,
+        role: user.role
+    }, JWT_SECRET, { expiresIn: '8h' });
+}
+
+function authOwnerMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+    if (!bearer) {
+        return res.status(401).json({ error: 'Authentication required.' });
+    }
+
+    try {
+        const decoded = jwt.verify(bearer, JWT_SECRET);
+        const users = readOwnerUsers();
+        const owner = users.find(user => user.id === decoded.sub || user.username === decoded.username);
+
+        if (!owner || owner.role !== 'OWNER' || owner.active === false) {
+            return res.status(403).json({ error: 'Owner role required.' });
+        }
+
+        req.owner = owner;
+        next();
+    } catch (error) {
+        return res.status(401).json({ error: 'Invalid or expired token.' });
+    }
+}
 
 function readGallery() {
     ensureDataFile();
@@ -575,8 +702,189 @@ app.delete('/api/visits', (req, res) => {
   res.json({ success: true });
 });
 
-app.get('*', (req, res) => {
+app.post('/api/owner/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  const trimmedUsername = (username || '').trim();
+  const trimmedPassword = (password || '').trim();
+
+  if (!trimmedUsername || !trimmedPassword) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  const users = readOwnerUsers();
+  const owner = users.find(user => user.role === 'OWNER' && user.username.toLowerCase() === trimmedUsername.toLowerCase());
+
+  if (!owner || owner.password !== trimmedPassword || owner.active === false) {
+    logOwnerAudit('FAILED_LOGIN', { username: trimmedUsername, ip: req.ip }, null);
+    return res.status(401).json({ error: 'Invalid owner credentials.' });
+  }
+
+  const token = createOwnerToken(owner);
+  logOwnerAudit('LOGIN', { username: owner.username }, owner);
+
+  return res.json({
+    token,
+    user: {
+      id: owner.id,
+      username: owner.username,
+      email: owner.email,
+      role: owner.role,
+      firstName: owner.firstName,
+      lastName: owner.lastName
+    }
+  });
+});
+
+app.get('/api/owner/me', authOwnerMiddleware, (req, res) => {
+  res.json({
+    id: req.owner.id,
+    username: req.owner.username,
+    email: req.owner.email,
+    role: req.owner.role,
+    firstName: req.owner.firstName,
+    lastName: req.owner.lastName
+  });
+});
+
+app.get('/api/ads', (req, res) => {
+  res.json(readOwnerAds().sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)));
+});
+
+app.get('/api/owner/ads', authOwnerMiddleware, (req, res) => {
+  const ads = readOwnerAds().sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  res.json(ads);
+});
+
+app.post('/api/owner/ads', authOwnerMiddleware, (req, res) => {
+  const { title, subtitle, description, contact, status, imageUrl, imageAlt, buttonText, buttonUrl } = req.body || {};
+
+  if (!title || !description) {
+    return res.status(400).json({ error: 'Title and description are required.' });
+  }
+
+  const now = new Date().toISOString();
+  const ads = readOwnerAds();
+  const newAd = {
+    id: `ad-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    title: String(title).trim(),
+    subtitle: String(subtitle || '').trim(),
+    description: String(description).trim(),
+    contact: String(contact || '').trim(),
+    status: ['active', 'draft', 'archived'].includes(status) ? status : 'active',
+    imageUrl: String(imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80').trim(),
+    imageAlt: String(imageAlt || title).trim(),
+    buttonText: String(buttonText || 'Contact Owner').trim(),
+    buttonUrl: String(buttonUrl || 'tel:+919000000000').trim(),
+    createdAt: now,
+    updatedAt: now,
+    createdBy: req.owner.username
+  };
+
+  ads.unshift(newAd);
+  writeOwnerAds(ads);
+  logOwnerAudit('CREATE_AD', { id: newAd.id, title: newAd.title }, req.owner);
+
+  res.status(201).json({ success: true, ad: newAd });
+});
+
+app.put('/api/owner/ads/:id', authOwnerMiddleware, (req, res) => {
+  const { id } = req.params;
+  const ads = readOwnerAds();
+  const index = ads.findIndex(item => item.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Ad not found.' });
+  }
+
+  const { title, subtitle, description, contact, status, imageUrl, imageAlt, buttonText, buttonUrl } = req.body || {};
+
+  if (!title || !description) {
+    return res.status(400).json({ error: 'Title and description are required.' });
+  }
+
+  const updatedAd = {
+    ...ads[index],
+    title: String(title).trim(),
+    subtitle: String(subtitle || '').trim(),
+    description: String(description).trim(),
+    contact: String(contact || '').trim(),
+    status: ['active', 'draft', 'archived'].includes(status) ? status : ads[index].status,
+    imageUrl: String(imageUrl || ads[index].imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80').trim(),
+    imageAlt: String(imageAlt || title).trim(),
+    buttonText: String(buttonText || ads[index].buttonText || 'Contact Owner').trim(),
+    buttonUrl: String(buttonUrl || ads[index].buttonUrl || 'tel:+919000000000').trim(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: req.owner.username
+  };
+
+  ads[index] = updatedAd;
+  writeOwnerAds(ads);
+  logOwnerAudit('UPDATE_AD', { id: updatedAd.id, title: updatedAd.title }, req.owner);
+
+  res.json({ success: true, ad: updatedAd });
+});
+
+app.delete('/api/owner/ads/:id', authOwnerMiddleware, (req, res) => {
+  const ads = readOwnerAds();
+  const index = ads.findIndex(item => item.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Ad not found.' });
+  }
+
+  const [removed] = ads.splice(index, 1);
+  writeOwnerAds(ads);
+  logOwnerAudit('DELETE_AD', { id: removed.id, title: removed.title }, req.owner);
+
+  res.json({ success: true, deletedId: removed.id });
+});
+
+app.get('/api/owner/audit', authOwnerMiddleware, (req, res) => {
+  const logs = readAuditLogs().slice(0, 25);
+  res.json(logs);
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('*', (req, res) => {
+  const requestedPath = req.originalUrl || '';
+  if (requestedPath.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found.' });
+  }
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// LinkedIn about/profile endpoint - return local data if present, otherwise a minimal fallback
+app.get('/api/about/linkedin', (req, res) => {
+  const url = req.query.url || '';
+  const dataFile = path.join(dataDir, 'linkedin.json');
+  if (fs.existsSync(dataFile)) {
+    try {
+      const raw = fs.readFileSync(dataFile, 'utf8');
+      return res.json(JSON.parse(raw));
+    } catch (e) {
+      console.error('Invalid linkedin.json:', e);
+    }
+  }
+
+  return res.json({
+    name: 'SK Web Solutions',
+    headline: 'Frontend Developer',
+    summary: `Public LinkedIn: ${url || 'https://www.linkedin.com'}`,
+    profilePicture: '/Founder1.jpeg',
+    location: 'Hyderabad, India',
+    linkedInUrl: url || 'https://www.linkedin.com/feed/'
+  });
 });
 
 app.listen(port, () => {

@@ -4,57 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SK Web Solutions | High-Performance Frontend Development</title>
-    <link rel="stylesheet" href="Style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="site-header">
         <div class="container header-inner">
-            <div class="brand"><span>SK</span> Web Solutions</div>
+            <div class="brand" aria-label="SK Web Solutions brand">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 120 100" role="img" aria-label="SK Web Solutions logo">
+                        <defs>
+                            <linearGradient id="brandFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#dff8ff"/>
+                                <stop offset="100%" stop-color="#b9ebf5"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M18 72 L60 18 L102 72 Z" fill="#29b7d7" opacity="0.9"/>
+                        <rect x="30" y="58" width="60" height="20" rx="8" fill="#1f2e3d" stroke="#1f2e3d" stroke-width="3"/>
+                        <path d="M42 52c0-11 7-18 18-18s18 7 18 18v8H42v-8Z" fill="#d8f3f7" stroke="#1f2e3d" stroke-width="3"/>
+                        <circle cx="60" cy="44" r="12" fill="#e9f9ff" stroke="#1f2e3d" stroke-width="3"/>
+                        <path d="M53 42c2-6 10-8 17-5" stroke="#1f2e3d" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <path d="M49 48c3 6 7 8 11 8 5 0 9-3 12-8" stroke="#1f2e3d" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <rect x="46" y="66" width="28" height="10" rx="5" fill="#eafdfd"/>
+                    </svg>
+                </span>
+                <span class="brand-wordmark">
+                    <span class="brand-main">SK WEB</span>
+                    <span class="brand-sub">SOLUTIONS</span>
+                </span>
+            </div>
             <nav class="main-nav" id="main-nav">
                 <a href="#overview">Home</a>
                 <a href="#services">Services</a>
                 <a href="#work">Work</a>
-                
                 <a href="#contact">Contact</a>
-                <a href="admin.html">Admin</a>
             </nav>
+            <a href="https://www.crazygames.com/" target="_blank" rel="noopener noreferrer" class="header-game-button" aria-label="Open SK Crazy Game">🎮 SK Crazy Game</a>
+            <a href="admin.html" class="header-admin-button hidden-admin-link" aria-label="Open admin panel" aria-hidden="true" tabindex="-1">Admin</a>
             <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
         </div>
     </header>
-    <main>
+    <main>  
         <section class="hero" id="overview">
-            <div class="container hero-grid">
-                <div class="hero-content">
-                    <p class="eyebrow">High-performance digital solutions 🌐</p>
-                    <h1> SK Web Solutions 🖥️</h1>
-                    <p class="hero-text">SK Web Solutions delivers responsive, brand-focused frontend development for startups, agencies, and established companies across Hyderabad and beyond.</p>
-                    <div class="hero-actions">
-                        <a href="#services" class="button button-primary">Explore Services</a>
-                        <a href="#contact" class="button button-secondary">Contact Us</a>
+            <div class="hero-content">
+                <p class="eyebrow">Mr. Sarang Kumar </p>
+                <h1>SK Web Solutions 🖥️</h1>
+                <p class="hero-text">SK Web Solutions delivers responsive, brand-focused frontend development for startups, agencies, and established companies across Hyderabad and beyond.</p>
+                <div id="about-me" class="about-text">
+                    <p>I am Sarang Kumar, a passionate web developer and the founder of SK Web Solutions. I help businesses transform ideas into powerful digital experiences through clean design, responsive development, and modern web technologies. My focus is on delivering websites that combine performance, usability, and visual excellence to help clients grow their brands online. Together with his business partner, Mr. Praneeth, he helps businesses build a strong digital presence through innovative and user-centric web solutions.</p>
+                </div>
+                <div class="hero-actions">
+                    <a href="#services" class="button button-primary">Explore Services</a>
+                    <a href="#contact" class="button button-secondary">Contact Us</a>
+                    <a href="https://www.crazygames.com/" target="_blank" rel="noopener noreferrer" class="button button-primary">🎮 SK Crazy Game</a>
+                </div>
+            </div>
+            <div class="hero-media">
+                <div class="hero-glow"></div>
+                <div class="owner-card">
+                    <img src="Founder sarang.jpg" alt="SK Web Solutions founder Sarang Kumar" class="hero-image">
+                </div>
+                <div class="owner-info">
+                    <h3 class="founder-name"><a href="admin.html" class="founder-admin-link" aria-label="Open admin panel">Sarang Kumar</a></h3>
+                    <p class="founder-title">Founder & CEO</p>
+                    <div class="social-links">
+                        <a href="https://www.linkedin.com/in/sarang-kumar/" target="_blank" rel="noopener noreferrer" class="social-icon linkedin" aria-label="LinkedIn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.722-2.004 1.418-.103.25-.129.599-.129.948v5.439h-3.554s.047-8.812 0-9.737h3.554v1.378c.43-.664 1.2-1.61 2.923-1.61 2.134 0 3.734 1.393 3.734 4.385v5.584zM5.337 8.855c-1.144 0-1.915-.759-1.915-1.71 0-.955.77-1.71 1.963-1.71 1.192 0 1.915.755 1.938 1.71 0 .951-.746 1.71-1.986 1.71zm-1.6 11.597h3.2V9.671H3.737v10.781zM22.224 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.224 0z"/>
+                            </svg>
+                        </a>
+                        <a href="https://www.instagram.com/sk_developer7?igsi=MTkybjd3b3FybDMzZw==" target="_blank" rel="noopener noreferrer" class="social-icon instagram" aria-label="Instagram">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zm5-3.2a1.1 1.1 0 1 1-1.1 1.1 1.1 1.1 0 0 1 1.1-1.1z"/>
+                            </svg>
+                        </a>
+                        <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" class="social-icon whatsapp" aria-label="WhatsApp">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.15-1.746-.863-2.015-.96-.267-.098-.46-.15-.655.15-.194.297-.76.96-.93 1.155-.168.194-.337.21-.634.064-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.655-1.563-.9-2.14-.237-.576-.474-.499-.655-.508-.169-.009-.363-.01-.556-.01-.194 0-.51.073-.777.367-.267.294-1.021 1.002-1.021 2.44 0 1.437 1.046 2.83 1.192 3.026.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004c-1.537 0-2.978-.537-4.084-1.508-1.106-.971-1.73-2.282-1.73-3.65 0-2.966 2.413-5.38 5.379-5.38 1.437 0 2.79.501 3.832 1.413 1.042.912 1.626 2.155 1.626 3.471 0 2.967-2.414 5.38-5.379 5.38m4.949-10.83C15.993.866 13.661 0 11.216 0 5.672 0 1.266 4.406 1.266 9.95c0 1.744.438 3.458 1.274 4.957L.158 23.81l5.352-1.404c1.437.768 3.05 1.175 4.706 1.175 5.544 0 9.95-4.406 9.95-9.95 0-2.658-.981-5.15-2.764-7.046"/>
+                            </svg>
+                        </a>
                     </div>
-                    <div class="hero-stats">
-                        <div class="stat-card">
-                            <strong>50+</strong>
-                            <span>Projects Delivered</span>
-                        </div>
-                        <div class="stat-card">
-                            <strong>40+</strong>
-                            <span>Happy Clients</span>
-                        </div>
-                        <div class="stat-card">
-                            <strong>98%</strong>
-                            <span>Client Satisfaction</span>
-                        </div>
-                        <div class="stat-">
-                           
-                        </div>
-                    </div>
                 </div>
-                <div class="hero-media">
-                    <img src="Owner.jpg" alt="SK Web Solutions founder" class="hero-image">
-                    <p class="founder-name">Mr_Sarang_Kumar</p>
-                </div>
-                </div>
+            </div>
         </section>
 
         <section class="section section-services" id="services">
@@ -87,83 +117,10 @@
         <section class="section section-work" id="work">
             <div class="container">
                 <div class="section-heading">
-                    <p class="eyebrow">collaboration Ads</p>
-                    <h2>Upcoming Project Ads🎉</h2>
+                    <p class="eyebrow">Upcoming projects</p>
+                    <h2>Fresh ideas in motion</h2>
                 </div>
-                <div class="case-grid">
-                    <article class="case-card">
-                        <div class="case-badge">Mr_Vinay_Kumar</div>
-                        <h3>XIT View Interior</h3>
-                        <p>Premium Interior Design & Turnkey Solutions for Homes, Offices, Retail Stores, and Commercial Spaces.
-                            <Br> 
-                            Contact for More -+91 9032434349
-                        </p>
-                    </article>
-                    <article class="case-card">
-                        <div class="case-badge">SK Web</div>
-                        <h3>Updated version coming soon</h3>
-                        <p>Coming soon with an updated design, engaging pages, and more features.</p>
-                    </article>
-                    <article class="case-card">
-                        <div class="case-badge">Contact</div>
-                        <h3>Contact Us</h3>
-                        <p>Delivered a high-performance real estate portal with advanced search and contact workflows.
-                            Contact +91 7095244790
-                        </p>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="section section-testimonials">
-            <div class="container">
-                <div class="section-heading">
-                    <p class="eyebrow">Client feedback</p>
-                    <h2>Trusted by businesses and brands</h2>
-                </div>
-                <div class="testimonial-grid">
-                    <article class="testimonial-card">
-                        <p>“Sarang transformed our outdated site into a high-converting machine. Sales tripled within 3 months.”</p>
-                        <strong>Rajesh Sharma, RetailMax India</strong>
-                    </article>
-                    <article class="testimonial-card">
-                        <p>“The platform handles thousands of students flawlessly. Professional, timely, and business-focused.”</p>
-                        <strong>Priya Nair, EduLearn Academy</strong>
-                    </article>
-                    <article class="testimonial-card">
-                        <p>“Our lead generation improved dramatically. The site is fast and easy to maintain.”</p>
-                        <strong>Kiran Reddy, PropertyHub Hyderabad</strong>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="section section-instagram" id="instagram">
-            <div class="container instagram-section">
-                <div class="section-heading" style="text-align:left; margin-bottom: 1.5rem;">
-                    <p class="eyebrow">Follow us</p>
-                    <h2 style="margin-bottom: 0.25rem;">Instagram</h2>
-                    <p style="margin:0; color: var(--text-light); max-width: 720px;">
-                        See our latest updates, reels and project highlights.
-                    </p>
-                </div>
-
-                <div class="instagram-actions">
-                    <a
-                        class="button button-primary"
-                        href="https://www.instagram.com/sk_developer7?igsh=MTkybjd3b3FybDMzZw=="
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Follow on Instagram
-                    </a>
-
-                    <div class="instagram-embed" aria-label="Instagram embed">
-                        <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/sk_developer7/" data-instgrm-version="14" style="max-width:540px; margin: 1rem 0;">
-                            <a href="https://www.instagram.com/sk_developer7/">SK Developer</a>
-                        </blockquote>
-                    </div>
-                </div>
+                <div id="owner-ads-grid" class="case-grid" aria-live="polite"></div>
             </div>
         </section>
 
@@ -198,15 +155,6 @@
                     <button type="submit" class="button button-primary">Send Feedback</button>
                     <p id="form-success" class="form-success hidden">Thank you. Your message has been delivered to the admin inbox.</p>
                     <div id="client-notification" class="client-notification hidden"></div>
-                    <div class="status-check">
-                        <h3>Check meeting status</h3>
-                        <div class="form-group">
-                            <label for="status-contact">Email or phone</label>
-                            <input id="status-contact" type="text" placeholder="Enter your contact to check status">
-                        </div>
-                        <button type="button" id="status-check-button" class="button button-secondary">Check Status</button>
-                        <div id="status-result" class="client-notification hidden"></div>
-                    </div>
                 </form>
             </div>
         </section>

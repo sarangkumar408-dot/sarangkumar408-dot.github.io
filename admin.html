@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Web Solutions | Owner Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand"><span>SK</span> Web Solutions</div>
+            <nav class="main-nav" id="main-nav">
+                <a href="index.html">Home</a>
+                <a href="index.html#services">Services</a>
+                <a href="index.html#work">Work</a>
+                <a href="index.html#contact">Contact</a>
+            </nav>
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation">Menu</button>
+        </div>
+    </header>
+
+    <main class="owner-module">
+        <section class="section">
+            <div class="container owner-auth-shell">
+                <div id="admin-inbox" class="owner-panel">
+                    <div class="owner-panel-header">
+                        <div>
+                            <p class="eyebrow">Admin</p>
+                            <h2>Customer messages</h2>
+                        </div>
+                        <div class="owner-header-actions">
+                            <button id="admin-refresh-messages" class="button button-secondary" type="button">Refresh</button>
+                            <a href="index.html" class="button button-secondary" type="button">Back to site</a>
+                        </div>
+                    </div>
+
+                    <div id="admin-stats" class="admin-stats-grid"></div>
+                    <div id="admin-message-list" class="admin-message-list"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>© 2026 SK Web Solutions. Customer inbox.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
