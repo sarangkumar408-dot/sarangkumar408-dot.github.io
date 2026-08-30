@@ -36,6 +36,67 @@
                     </div>
 
                     <div id="admin-stats" class="admin-stats-grid"></div>
+                    <div id="review-requests" class="owner-panel-section">
+                        <div class="owner-panel-subhead">
+                            <p class="eyebrow">Client outreach</p>
+                            <h3>Send review request</h3>
+                        </div>
+                        <div class="review-shell">
+                            <div class="form-row">
+                                <label for="rv-client-name">Client name</label>
+                                <input id="rv-client-name" type="text" placeholder="Client full name">
+                            </div>
+                            <div class="form-row">
+                                <label for="rv-client-email">Client email</label>
+                                <input id="rv-client-email" type="email" placeholder="client@example.com">
+                            </div>
+                            <div class="form-row">
+                                <label for="rv-client-phone">Client phone (international)</label>
+                                <input id="rv-client-phone" type="tel" placeholder="+919XXXXXXXXX">
+                            </div>
+                            <div class="form-row">
+                                <label for="rv-template">Template</label>
+                                <select id="rv-template"></select>
+                            </div>
+                            <div class="form-actions">
+                                <button id="rv-send-email" class="button button-primary" type="button">Send Email</button>
+                                <button id="rv-send-wa" class="button button-secondary" type="button">Send WhatsApp</button>
+                                <button id="rv-copy" class="button" type="button">Copy Message</button>
+                            </div>
+                            <p class="hint">Note: Email opens your default mail client. WhatsApp sends to the provided client phone.</p>
+                        </div>
+
+                        <div class="owner-panel-subhead" style="margin-top:1.5rem;">
+                            <p class="eyebrow">Templates</p>
+                            <h4>Edit templates</h4>
+                        </div>
+                        <div class="review-templates-editor">
+                            <div class="form-row">
+                                <label for="tpl-select">Select template</label>
+                                <select id="tpl-select"></select>
+                            </div>
+                            <div class="form-row">
+                                <label for="tpl-title">Title</label>
+                                <input id="tpl-title" type="text" placeholder="Template title">
+                            </div>
+                            <div class="form-row">
+                                <label for="tpl-subject">Email subject (optional)</label>
+                                <input id="tpl-subject" type="text" placeholder="Email subject">
+                            </div>
+                            <div class="form-row">
+                                <label for="tpl-body">Message body</label>
+                                <textarea id="tpl-body" rows="6" placeholder="Message body. Use {name} to insert client name."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button id="tpl-save" class="button button-primary" type="button">Save Template</button>
+                                <button id="tpl-add" class="button" type="button">Add New</button>
+                                <button id="tpl-delete" class="button button-secondary" type="button">Delete</button>
+                                <button id="tpl-reset" class="button" type="button">Reset Defaults</button>
+                            </div>
+                            <p class="hint">Changes are saved to your browser (localStorage). Use Reset Defaults to restore original templates.</p>
+                        </div>
+                        </div>
+                    </div>
                     <div id="admin-message-list" class="admin-message-list"></div>
                 </div>
             </div>
