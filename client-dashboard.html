@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Client Dashboard — SK Web Solutions</title>
+  <meta name="description" content="Client dashboard placeholder for SK Web Solutions — view projects, invoices, messages and support." />
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">SK Web Solutions</div>
+      <nav class="main-nav">
+        <a href="/index.html">Home</a>
+        <a href="/admin.html">Admin</a>
+        <a href="/client-dashboard.html">Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Client Area</p>
+        <h1>Your Dashboard</h1>
+      </div>
+
+      <div class="dashboard-grid">
+        <aside class="dashboard-sidebar">
+          <ul class="dashboard-nav">
+            <li><a href="#projects">Projects</a></li>
+            <li><a href="#invoices">Invoices</a></li>
+            <li><a href="#messages">Messages</a></li>
+            <li><a href="#book">Book Support</a></li>
+            <li><a href="#calculators">Calculators</a></li>
+          </ul>
+        </aside>
+
+        <div class="dashboard-main">
+          <section id="projects">
+            <h2>Projects</h2>
+            <p>Summary of active projects and statuses (placeholder).</p>
+            <div class="card">No projects yet — this is a demo dashboard.</div>
+          </section>
+
+          <section id="invoices">
+            <h2>Invoices</h2>
+            <p>Recent invoices and payment status.</p>
+            <div class="card">No invoices found.</div>
+          </section>
+
+          <section id="messages">
+            <h2>Messages</h2>
+            <p>Client messages and support tickets.</p>
+            <div class="card">Use the contact form or admin inbox to start a conversation.</div>
+          </section>
+
+          <section id="book">
+            <h2>Book Support</h2>
+            <p>Book a meeting with our team via Calendly or message on WhatsApp.</p>
+            <p><a class="button" href="https://calendly.com/sk-web-solutions/consult" target="_blank" rel="noopener">Book a Meeting</a>
+            <a class="button button-secondary" href="https://wa.me/919095244790" target="_blank" rel="noopener">Message on WhatsApp</a></p>
+          </section>
+
+          <section id="calculators">
+            <h2>Calculators</h2>
+            <p>Estimate project cost quickly using the calculator below.</p>
+            <div id="project-calculator" class="project-calculator">
+              <form>
+                <div class="form-row"><label>Number of pages</label><input id="calc-pages" type="number" min="0" value="5"></div>
+                <div class="form-row"><label>Integrations (payment, APIs)</label><input id="calc-integrations" type="number" min="0" value="0"></div>
+                <div class="form-row"><label>Complexity</label>
+                  <select id="calc-complexity">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div class="form-row"><label>Features</label>
+                  <label><input type="checkbox" name="calc-feature" value="contactForm"> Contact form</label>
+                  <label><input type="checkbox" name="calc-feature" value="blog" checked> Blog</label>
+                  <label><input type="checkbox" name="calc-feature" value="gallery"> Gallery</label>
+                  <label><input type="checkbox" name="calc-feature" value="ecommerce"> E-commerce</label>
+                  <label><input type="checkbox" name="calc-feature" value="custom"> Custom integration</label>
+                </div>
+              </form>
+              <div class="calc-result" aria-live="polite"></div>
+            </div>
+            <script src="/assets/calculator.js"></script>
+            <script>document.addEventListener('DOMContentLoaded', function(){ if(window.initProjectCalculator) initProjectCalculator('#project-calculator'); });</script>
+          </section>
+        </div>
+      </div>
+
+      <p class="muted">This is a static scaffold for the planned client dashboard. To make it functional we can add authentication, server-backed data, and a simple SPA app.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer"><div class="container">© 2026 SK Web Solutions</div></footer>
+</body>
+</html>
