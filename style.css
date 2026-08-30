@@ -1553,21 +1553,46 @@ a:hover {
         width: min(100%, 220px);
     }
 
+    .site-header {
+        background: #ffffff;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
     .header-inner {
         position: relative;
         flex-wrap: wrap;
-        gap: 0.75rem;
-        padding: 0.75rem 0.9rem;
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+        padding: 0.6rem 0.9rem;
         height: auto;
+        min-height: var(--header-height, 64px);
     }
 
     .brand {
         flex: 1 1 auto;
         min-width: 0;
+        gap: 0.55rem;
+    }
+
+    .brand-mark {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        flex: 0 0 auto;
+    }
+
+    .brand-main {
+        font-size: 1.05rem;
+    }
+
+    .brand-sub {
+        font-size: 0.6rem;
+        letter-spacing: 0.22em;
     }
 
     .header-game-button {
-        margin-left: 0;
+        display: none;
     }
 
     .menu-toggle {
@@ -1575,22 +1600,54 @@ a:hover {
         align-items: center;
         justify-content: center;
         margin-left: auto;
+        flex: 0 0 auto;
     }
 
+    /* Nav always drops to its own row so the bar never overflows */
+    .main-nav {
+        flex-basis: 100%;
+    }
+
+    /* Pages WITHOUT a JS hamburger (most subpages): show a clean,
+       compact, wrapping horizontal bar instead of a giant stacked block. */
+    body:not(.has-mobile-menu) .main-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.15rem 1.1rem;
+        width: 100%;
+        padding: 0.35rem 0 0.15rem;
+    }
+
+    body:not(.has-mobile-menu) .main-nav a {
+        width: auto;
+        padding: 0.35rem 0.1rem;
+        font-size: 0.92rem;
+        border: none;
+    }
+
+    body:not(.has-mobile-menu) .main-nav a::after {
+        bottom: 0;
+    }
+
+    /* Pages WITH a JS hamburger: hidden dropdown panel */
     .has-mobile-menu .main-nav {
         display: none;
         position: absolute;
         top: calc(100% + 0.25rem);
         left: 0;
         right: 0;
-        background: rgba(255,255,255,0.98);
-        padding: 1rem 1.2rem 1.2rem;
+        max-height: calc(100vh - 100% - 1rem);
+        overflow-y: auto;
+        background: #ffffff;
+        padding: 0.5rem 1.1rem 1rem;
         flex-direction: column;
         align-items: stretch;
-        border: 1px solid rgba(148,163,184,0.2);
+        border: 1px solid rgba(148,163,184,0.22);
         border-radius: 1rem;
-        box-shadow: 0 18px 28px rgba(15,23,42,0.08);
-        z-index: 12;
+        box-shadow: 0 18px 28px rgba(15,23,42,0.14);
+        z-index: 1200;
     }
 
     .has-mobile-menu .main-nav.active {
@@ -1599,25 +1656,13 @@ a:hover {
 
     .has-mobile-menu .main-nav a {
         width: 100%;
-        padding: 0.85rem 0.2rem;
+        padding: 0.95rem 0.2rem;
         border-bottom: 1px solid rgba(148,163,184,0.12);
-        font-size: 1rem;
+        font-size: 1.05rem;
     }
 
-    body:not(.has-mobile-menu) .main-nav {
-        display: flex;
-        order: 4;
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.35rem;
-        padding-top: 0.25rem;
-    }
-
-    body:not(.has-mobile-menu) .main-nav a {
-        width: 100%;
-        padding: 0.7rem 0.25rem;
-        border-bottom: 1px solid rgba(148,163,184,0.12);
+    .has-mobile-menu .main-nav a:last-child {
+        border-bottom: none;
     }
 
     .stats-container,
