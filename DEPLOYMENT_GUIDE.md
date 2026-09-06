@@ -13,13 +13,14 @@ This guide will help you deploy your SK Web Solutions website to the internet so
    - Sign up with GitHub or email
 
 2. **Prepare Your Project:**
-   - Create a `package.json` file if you don't have one:
+   - This repository already includes a working `package.json` for the Express app.
+   - Install dependencies locally before deployment:
      ```bash
-     npm init -y
+     npm install
      ```
-   - Install dependencies:
+   - Validate the server starts on your machine:
      ```bash
-     npm install express
+     npm start
      ```
 
 3. **Deploy to Vercel:**
@@ -38,6 +39,8 @@ This guide will help you deploy your SK Web Solutions website to the internet so
    - Follow the prompts (press Enter for defaults)
 
 4. **Your website will be live at:** `https://your-project-name.vercel.app`
+
+> Note: This project is an Express server app, not a static-only site. Use the Node runtime on the hosting platform and do not deploy only the HTML files without the server.
 
 ### Option 2: Render (FREE Tier Available)
 **Best for:** Node.js applications with persistent storage
@@ -103,7 +106,7 @@ NODE_ENV=production
 ```
 
 ### 2. Update package.json
-Make sure your `package.json` has:
+This project already includes the required launch config. Use the repository version as the source of truth:
 ```json
 {
   "name": "sk-web-solutions",
@@ -115,7 +118,13 @@ Make sure your `package.json` has:
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^4.18.0"
+    "archiver": "^5.3.1",
+    "express": "^4.18.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   },
   "engines": {
     "node": ">=14.0.0"
