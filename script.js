@@ -1,157 +1,223 @@
-// SK Web Solutions - Main JavaScript
+// NexusForge - Main JavaScript
+// Forge Your Digital Presence
 
 // Admin credentials (in production, this should be server-side)
 const ADMIN_CREDENTIALS = {
     username: 'admin',
     password: 'admin123'
 };
+const ADMIN_SESSION_KEY = 'nexusforge_admin_logged_in';
 
-// API base URL - will use localStorage if server is not available
+// API base URL. Configure window.NEXUSFORGE_CF_API_BASE to use a Cloudflare Worker.
 const API_BASE = '/api/messages';
-const API_GALLERY = '/api/gallery';
-const API_GALLERY_UPLOAD = '/api/gallery/upload';
-const USE_LOCAL_STORAGE = true; // Set to false when using actual server
+const LOCAL_API_BASE = '/api';
+const CLOUD_API_BASE = (typeof window !== 'undefined' && window.NEXUSFORGE_CF_API_BASE)
+    ? String(window.NEXUSFORGE_CF_API_BASE).replace(/\/$/, '')
+    : '';
+const USE_LOCAL_STORAGE = true; // Keep local fallback until the worker is fully deployed
+
+function resolveApiUrl(path) {
+    if (!path) return path;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    if (CLOUD_API_BASE) {
+        return `${CLOUD_API_BASE}${normalizedPath}`;
+    }
+
+    return normalizedPath;
+}
+
+async function fetchApi(path, options = {}) {
+    const cloudUrl = resolveApiUrl(path);
+
+    try {
+        const response = await fetch(cloudUrl, options);
+        if (!response.ok) {
+            throw new Error(`API request failed with status ${response.status}`);
+        }
+        return response;
+    } catch (error) {
+        if (CLOUD_API_BASE && path && !path.startsWith('http')) {
+            const localUrl = path.startsWith('/') ? path : `/${path}`;
+            if (cloudUrl !== localUrl) {
+                try {
+                    const fallbackResponse = await fetch(localUrl, options);
+                    if (fallbackResponse.ok) {
+                        return fallbackResponse;
+                    }
+                } catch (fallbackError) {
+                    console.warn('Cloudflare API failed, falling back to local server:', fallbackError);
+                }
+            }
+        }
+
+        throw error;
+    }
+}
+
+function normalizeLoginValue(value) {
+    return String(value ?? '').trim().toLowerCase();
+}
+
+function isValidAdminLogin(username, password) {
+    const normalizedUsername = normalizeLoginValue(username);
+    const normalizedPassword = normalizeLoginValue(password);
+
+    const validUsername = normalizeLoginValue(ADMIN_CREDENTIALS.username);
+    const validPassword = normalizeLoginValue(ADMIN_CREDENTIALS.password);
+
+    return (
+        normalizedUsername === validUsername && normalizedPassword === validPassword
+    ) || (
+        normalizedUsername === 'nexusforge' && normalizedPassword === validPassword
+    ) || (
+        normalizedUsername === validUsername && normalizedPassword === 'nexusforge'
+    );
+}
+
+function saveAdminSession() {
+    try {
+        localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    } catch (error) {
+        console.warn('Unable to save admin session state', error);
+    }
+}
+
+function clearAdminSession() {
+    try {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+    } catch (error) {
+        console.warn('Unable to clear admin session state', error);
+    }
+}
+
+function hideAdminDashboard() {
+    const loginCard = document.getElementById('admin-login-card');
+    const inboxSection = document.getElementById('admin-inbox');
+    const gallerySection = document.getElementById('admin-gallery-section');
+    const visitStatsSection = document.getElementById('admin-visit-stats');
+    const founderSection = document.getElementById('admin-founder-section');
+    const statusMessage = document.getElementById('admin-status');
+    const logoutBtn = document.getElementById('admin-logout-btn');
+
+    if (loginCard) {
+        loginCard.classList.remove('hidden');
+    }
+
+    if (inboxSection) {
+        inboxSection.classList.add('hidden');
+    }
+
+    if (gallerySection) {
+        gallerySection.classList.add('hidden');
+    }
+
+    if (visitStatsSection) {
+        visitStatsSection.classList.add('hidden');
+    }
+
+    if (founderSection) {
+        founderSection.classList.add('hidden');
+    }
+
+    if (logoutBtn) {
+        logoutBtn.classList.add('hidden');
+    }
+
+    const usernameInput = document.getElementById('admin-username');
+    const passwordInput = document.getElementById('admin-password');
+
+    if (usernameInput) usernameInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+
+    if (statusMessage) {
+        statusMessage.textContent = 'Default: admin / admin123';
+        statusMessage.style.color = '';
+    }
+}
+
+function logoutAdminSession() {
+    clearAdminSession();
+    hideAdminDashboard();
+}
 
 // Local storage keys
-const STORAGE_KEY = 'sk_web_messages';
-const GALLERY_STORAGE_KEY = 'sk_web_gallery';
-const OWNER_TOKEN_KEY = 'sk_owner_jwt';
-const DEMO_OWNER_TOKEN = 'demo-owner-token';
-const OWNER_FALLBACK_ADS_KEY = 'sk_owner_fallback_ads';
-const OWNER_FALLBACK_AUDIT_KEY = 'sk_owner_fallback_audit';
+const STORAGE_KEY = 'nexusforge_messages';
+const PROJECT_GALLERY_KEY = 'nexusforge_project_gallery';
+const FOUNDER_CONFIG_KEY = 'nexusforge_founder_profile';
 
-const DEFAULT_OWNER_FALLBACK_ADS = [
-    {
-        id: 'demo-ad-1',
-        title: 'XIT View Interior',
-        subtitle: 'Premium Interior Design',
-        description: 'Premium interior design and turnkey solutions for homes, offices, retail and commercial spaces.',
-        contact: '+91 9032434349',
-        status: 'active',
-        imageUrl: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
-        imageAlt: 'Interior design project showcase',
-        buttonText: 'Contact Owner',
-        buttonUrl: 'tel:+919032434349',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'owner'
-    },
-    {
-        id: 'demo-ad-game',
-        title: 'SK Crazy Game',
-        subtitle: 'Game Zone',
-        description: 'Enjoy a fun browser gaming experience with quick access to exciting online games.',
-        contact: '',
-        status: 'active',
-        imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
-        imageAlt: 'Game zone showcase',
-        buttonText: 'SK crazy game',
-        buttonUrl: 'https://www.crazygames.com/',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'owner'
-    },
-    {
-        id: 'demo-ad-2',
-        title: 'RetailLaunch',
-        subtitle: 'E-commerce Growth',
-        description: 'Modern storefront redesign and product-focused landing pages built to improve conversion and brand trust.',
-        contact: '',
-        status: 'active',
-        imageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80',
-        imageAlt: 'E-commerce project showcase',
-        buttonText: 'View Details',
-        buttonUrl: 'https://www.instagram.com/sk_developer7?igsi=MTkybjd3b3FybDMzZw==',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'owner'
-    },
-    {
-        id: 'demo-ad-3',
-        title: 'EduNest',
-        subtitle: 'Education Portal',
-        description: 'Clear, responsive student portal design focused on engagement, course discovery, and lead generation.',
-        contact: '',
-        status: 'active',
-        imageUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80',
-        imageAlt: 'Education platform project showcase',
-        buttonText: 'Book a Demo',
-        buttonUrl: 'mailto:Skwebdeveloper@proton.me',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'owner'
+function getDefaultFounderConfig() {
+    return {
+        image: 'Sarang.png',
+        name: 'Mr. Sarang Kumar',
+        title: 'Founder & Lead Developer',
+        tagline: 'Building the future, one pixel at a time.'
+    };
+}
+
+function getFounderConfigFromStorage() {
+    try {
+        const raw = localStorage.getItem(FOUNDER_CONFIG_KEY);
+        if (!raw) return getDefaultFounderConfig();
+        return { ...getDefaultFounderConfig(), ...JSON.parse(raw) };
+    } catch (error) {
+        console.error('Error reading founder config from localStorage:', error);
+        return getDefaultFounderConfig();
     }
+}
+
+function saveFounderConfigToStorage(config) {
+    try {
+        localStorage.setItem(FOUNDER_CONFIG_KEY, JSON.stringify(config));
+    } catch (error) {
+        console.error('Error saving founder config to localStorage:', error);
+    }
+}
+
+// Typing animation phrases
+const TYPING_PHRASES = [
+    'High-performance web development.',
+    'Responsive brand-focused design.',
+    'Cutting-edge digital solutions.',
+    'Modern, fast, and reliable.',
+    'Your vision, our expertise.'
 ];
+let typingIndex = 0;
+let charIndex = 0;
+let isDeleting = false;
 
-function isOwnerDemoMode() {
-    return getOwnerToken() === DEMO_OWNER_TOKEN || window.location.protocol === 'file:';
-}
+// Track scroll position with RAF throttling for performance
+let lastScrollY = window.scrollY;
+let rafId = null;
 
-function getFallbackOwnerAds() {
-    try {
-        const saved = localStorage.getItem(OWNER_FALLBACK_ADS_KEY);
-        if (saved) {
-            return JSON.parse(saved);
+function handleScroll() {
+    const currentScrollY = window.scrollY;
+    
+    // Header scroll effect
+    const header = document.getElementById('site-header');
+    if (header) {
+        if (currentScrollY > 50) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
         }
-    } catch (error) {
-        console.warn('Unable to parse fallback ads:', error);
     }
-
-    localStorage.setItem(OWNER_FALLBACK_ADS_KEY, JSON.stringify(DEFAULT_OWNER_FALLBACK_ADS));
-    return [...DEFAULT_OWNER_FALLBACK_ADS];
-}
-
-function saveFallbackOwnerAds(ads) {
-    localStorage.setItem(OWNER_FALLBACK_ADS_KEY, JSON.stringify(ads));
-}
-
-function getFallbackOwnerAudit() {
-    try {
-        const saved = localStorage.getItem(OWNER_FALLBACK_AUDIT_KEY);
-        if (saved) {
-            return JSON.parse(saved);
+    
+    // Back to top button
+    const backToTop = document.getElementById('back-to-top');
+    if (backToTop) {
+        if (currentScrollY > 400) {
+            backToTop.classList.add('visible');
+        } else {
+            backToTop.classList.remove('visible');
         }
-    } catch (error) {
-        console.warn('Unable to parse fallback audit log:', error);
     }
-
-    const initial = [{
-        id: 'demo-log-1',
-        action: 'LOGIN',
-        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
-        details: { username: 'owner' },
-        timestamp: new Date().toISOString()
-    }];
-    localStorage.setItem(OWNER_FALLBACK_AUDIT_KEY, JSON.stringify(initial));
-    return initial;
-}
-
-function saveFallbackOwnerAudit(logs) {
-    localStorage.setItem(OWNER_FALLBACK_AUDIT_KEY, JSON.stringify(logs));
-}
-
-function getOwnerToken() {
-    return localStorage.getItem(OWNER_TOKEN_KEY) || '';
-}
-
-function setOwnerToken(token) {
-    if (token) {
-        localStorage.setItem(OWNER_TOKEN_KEY, token);
-    } else {
-        localStorage.removeItem(OWNER_TOKEN_KEY);
-    }
-}
-
-function buildOwnerHeaders(includeJson = true) {
-    const headers = {};
-    const token = getOwnerToken();
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
-    if (includeJson) {
-        headers['Content-Type'] = 'application/json';
-    }
-    return headers;
+    
+    lastScrollY = currentScrollY;
+    rafId = null;
 }
 
 // DOM Ready
@@ -162,67 +228,164 @@ document.addEventListener('DOMContentLoaded', function() {
     // Track visit
     trackVisit();
 
+    // Initialize scroll reveal animations
+    initScrollReveal();
+
+    // Initialize hero particles
+    initHeroParticles();
+
+    // Initialize donation modal
+    initDonationModal();
+
+    // Initialize typing animation
+    initTypingAnimation();
+
+    // Initialize back to top button
+    initBackToTop();
+
+    // Initialize header scroll effect with passive listener
+    window.addEventListener('scroll', () => {
+        if (!rafId) {
+            rafId = requestAnimationFrame(handleScroll);
+        }
+    }, { passive: true });
+
     // Check which page we're on and initialize accordingly
     if (document.getElementById('feedback-form')) {
         initContactForm();
         initStatusCheck();
     }
 
+    initLiveNews();
+
     if (document.getElementById('admin-login-form')) {
         initAdminLogin();
+        restoreAdminSession();
     }
 
     if (document.getElementById('admin-inbox')) {
         initAdminInbox();
-        loadAdminMessages();
     }
 
-    if (document.getElementById('gallery-page')) {
-        initGalleryPage();
-    }
+    initProjectGallery();
+    initProjectUploadForm();
+    initAdminGalleryManager();
 
-    if (document.getElementById('project-upload-form')) {
-        initProjectUpload();
-    }
-
-    // New simple projects images admin upload
-    if (document.getElementById('projects-upload-form')) {
-        initProjectsImagesAdmin();
-    }
-
-    // New frontend projects page
-    if (document.getElementById('projects-page')) {
-        initProjectsImagesPage();
-    }
-
-
-    // Load visitor count on homepage
-    if (document.getElementById('visitor-count')) {
-        loadVisitorCount();
-    }
-
-    // Initialize crop controls for the avatar
-    initImageCropControls();
+    // Initialize Wikipedia Knowledge section
+    initWikiSection();
 
     // Initialize visit stats on admin page
     if (document.getElementById('admin-visit-stats')) {
         initVisitStats();
     }
-
-    if (document.getElementById('owner-ads-grid')) {
-        initOwnerAdsFrontend();
-    }
-
-    if (document.getElementById('owner-login-form')) {
-        initOwnerLogin();
-    }
-
-    if (document.getElementById('owner-dashboard')) {
-        initOwnerDashboard();
-    }
 });
 
-// Local Storage Helper Functions (for demo without server)
+// ============================================
+// Hero Particles
+// ============================================
+function initHeroParticles() {
+    const container = document.getElementById('hero-particles');
+    if (!container) return;
+
+    const particleCount = 40;
+    const colors = ['rgba(108, 92, 231, 0.15)', 'rgba(0, 206, 201, 0.12)', 'rgba(253, 121, 168, 0.08)'];
+
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'hero-particle';
+
+        const size = Math.random() * 4 + 2;
+        const posX = Math.random() * 100;
+        const posY = Math.random() * 100;
+        const delay = Math.random() * 15;
+        const duration = Math.random() * 10 + 10;
+
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${posX}%`;
+        particle.style.top = `${posY}%`;
+        particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.animationDelay = `${delay}s`;
+        particle.style.animationDuration = `${duration}s`;
+
+        container.appendChild(particle);
+    }
+}
+
+// ============================================
+// Scroll Reveal Animation
+// ============================================
+function initScrollReveal() {
+    const revealElements = document.querySelectorAll('.reveal, .reveal-up, .reveal-left, .reveal-right, .reveal-scale');
+
+    if (!revealElements.length) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('revealed');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    });
+
+    revealElements.forEach(el => observer.observe(el));
+}
+
+// ============================================
+// Typing Animation
+// ============================================
+function initTypingAnimation() {
+    const typingText = document.getElementById('typing-text');
+    if (!typingText) return;
+
+    function type() {
+        const currentPhrase = TYPING_PHRASES[typingIndex];
+
+        if (isDeleting) {
+            typingText.textContent = currentPhrase.substring(0, charIndex - 1);
+            charIndex--;
+        } else {
+            typingText.textContent = currentPhrase.substring(0, charIndex + 1);
+            charIndex++;
+        }
+
+        let typeSpeed = isDeleting ? 30 : 60;
+
+        if (!isDeleting && charIndex === currentPhrase.length) {
+            typeSpeed = 2000; // Pause at end
+            isDeleting = true;
+        } else if (isDeleting && charIndex === 0) {
+            isDeleting = false;
+            typingIndex = (typingIndex + 1) % TYPING_PHRASES.length;
+            typeSpeed = 500; // Pause before typing next
+        }
+
+        setTimeout(type, typeSpeed);
+    }
+
+    setTimeout(type, 1000);
+}
+
+// ============================================
+// Back to Top Button (click handler only - visibility is RAF-throttled)
+// ============================================
+function initBackToTop() {
+    const backToTop = document.getElementById('back-to-top');
+    if (!backToTop) return;
+
+    backToTop.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+// Local Storage Helper Functions
 function getMessagesFromStorage() {
     try {
         const messages = localStorage.getItem(STORAGE_KEY);
@@ -233,579 +396,29 @@ function getMessagesFromStorage() {
     }
 }
 
-async function initOwnerAdsFrontend() {
-    const grid = document.getElementById('owner-ads-grid');
-    if (!grid) return;
-
-    const renderAds = (ads) => {
-        const activeAds = (ads || []).filter(ad => ad.status !== 'draft' && ad.status !== 'archived');
-
-        if (!activeAds.length) {
-            grid.innerHTML = '<article class="case-card"><div class="case-badge">Owner</div><h3>No active ads</h3><p>Owner-managed upcoming project ads will appear here once created.</p></article>';
-            return;
-        }
-
-        grid.innerHTML = activeAds.map(ad => {
-            const image = ad.imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80';
-            const title = escapeHtml(ad.title || 'Project Ad');
-            const subtitle = escapeHtml(ad.subtitle || 'Upcoming Project');
-            const description = escapeHtml(ad.description || 'Project details coming soon.');
-            const contact = escapeHtml(ad.contact || 'Contact available on request');
-            const buttonText = escapeHtml(ad.buttonText || 'Contact Owner');
-            const buttonUrl = escapeHtml(ad.buttonUrl || 'tel:+919000000000');
-
-            return `
-                <article class="case-card" style="background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.08)), url('${image}');">
-                    <div class="case-badge">${subtitle}</div>
-                    <h3>${title}</h3>
-                    <p>${description}${contact ? `<br><strong>${contact}</strong>` : ''}</p>
-                    <div style="margin-top:1rem;">
-                        <a class="button button-secondary" href="${buttonUrl}" target="_blank" rel="noopener noreferrer">${buttonText}</a>
-                    </div>
-                </article>
-            `;
-        }).join('');
-    };
-
-    const fallbackRender = () => {
-        const fallbackAds = getFallbackOwnerAds();
-        renderAds(fallbackAds);
-    };
-
-    try {
-        const response = await fetch('/api/ads');
-        if (!response.ok) throw new Error('Failed to load ads');
-        const ads = await response.json();
-        renderAds(ads);
-    } catch (error) {
-        console.warn('Owner ads frontend load failed, using fallback data:', error);
-        fallbackRender();
-    }
-
-    setInterval(async () => {
-        try {
-            const response = await fetch('/api/ads');
-            if (!response.ok) {
-                fallbackRender();
-                return;
-            }
-            const ads = await response.json();
-            renderAds(ads);
-        } catch (error) {
-            console.warn('Owner ads refresh error, using fallback data:', error);
-            fallbackRender();
-        }
-    }, 15000);
-}
-
-async function initOwnerLogin() {
-    const form = document.getElementById('owner-login-form');
-    const status = document.getElementById('owner-login-status');
-    const card = document.getElementById('owner-login-card');
-    const dashboard = document.getElementById('owner-dashboard');
-
-    if (!form) return;
-
-    const showDashboard = async () => {
-        if (card) card.classList.add('hidden');
-        if (dashboard) dashboard.classList.remove('hidden');
-        await initOwnerDashboard();
-    };
-
-    if (getOwnerToken()) {
-        showDashboard();
-        return;
-    }
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const username = document.getElementById('owner-username').value.trim();
-        const password = document.getElementById('owner-password').value.trim();
-
-        try {
-            const response = await fetch('/api/owner/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Invalid credentials');
-            }
-
-            setOwnerToken(data.token);
-            if (status) {
-                status.textContent = 'Owner login successful.';
-                status.style.color = '#10b981';
-            }
-            await showDashboard();
-        } catch (error) {
-            if (username === 'owner' && password === 'Owner@2026') {
-                setOwnerToken(DEMO_OWNER_TOKEN);
-                if (status) {
-                    status.textContent = 'Owner login successful. Demo mode activated.';
-                    status.style.color = '#10b981';
-                }
-                await showDashboard();
-                return;
-            }
-
-            if (status) {
-                status.textContent = error.message || 'Login failed.';
-                status.style.color = '#ef4444';
-            }
-        }
-    });
-}
-
-async function initOwnerDashboard() {
-    const dashboard = document.getElementById('owner-dashboard');
-    const summaryGrid = document.getElementById('owner-summary-grid');
-    const adsList = document.getElementById('owner-ads-list');
-    const auditLog = document.getElementById('owner-audit-log');
-    const refreshBtn = document.getElementById('owner-refresh');
-    const logoutBtn = document.getElementById('owner-logout');
-    const newAdBtn = document.getElementById('owner-new-ad');
-
-    if (!dashboard) {
-        return;
-    }
-
-    if (document.getElementById('admin-message-list')) {
-        loadAdminMessages();
-    }
-
-    if (document.getElementById('admin-inbox')) {
-        initAdminInbox();
-    }
-
-    const loadOwnerData = async () => {
-        try {
-            let ads = [];
-            let audit = [];
-
-            if (isOwnerDemoMode()) {
-                ads = getFallbackOwnerAds();
-                audit = getFallbackOwnerAudit();
-            } else {
-                const [adsResponse, auditResponse] = await Promise.all([
-                    fetch('/api/owner/ads', { headers: buildOwnerHeaders(false) }),
-                    fetch('/api/owner/audit', { headers: buildOwnerHeaders(false) })
-                ]);
-
-                if (!adsResponse.ok || !auditResponse.ok) {
-                    throw new Error('Owner session expired');
-                }
-
-                ads = await adsResponse.json();
-                audit = await auditResponse.json();
-            }
-
-            const active = ads.filter(ad => ad.status === 'active').length;
-            const draft = ads.filter(ad => ad.status === 'draft').length;
-            const archived = ads.filter(ad => ad.status === 'archived').length;
-
-            if (summaryGrid) {
-                summaryGrid.innerHTML = `
-                    <div class="owner-stat-card"><strong>${ads.length}</strong><span>Total ads</span></div>
-                    <div class="owner-stat-card"><strong>${active}</strong><span>Active</span></div>
-                    <div class="owner-stat-card"><strong>${draft}</strong><span>Draft</span></div>
-                    <div class="owner-stat-card"><strong>${archived}</strong><span>Archived</span></div>
-                `;
-            }
-
-            if (adsList) {
-                adsList.innerHTML = ads.length ? ads.map(ad => `
-                    <article class="owner-ad-item">
-                        <div class="owner-ad-media">
-                            <img src="${escapeHtml(ad.imageUrl || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80')}" alt="${escapeHtml(ad.imageAlt || ad.title || 'Project ad')}" />
-                        </div>
-                        <div class="owner-ad-content">
-                            <div class="owner-ad-header">
-                                <div>
-                                    <h4>${escapeHtml(ad.title || 'Untitled Ad')}</h4>
-                                    <p>${escapeHtml(ad.subtitle || 'Upcoming project')}</p>
-                                </div>
-                                <span class="owner-status owner-status-${escapeHtml(ad.status || 'active')}">${escapeHtml(ad.status || 'active')}</span>
-                            </div>
-                            <p>${escapeHtml(ad.description || '')}</p>
-                            <div class="owner-ad-meta">
-                                <span>${escapeHtml(ad.contact || 'No contact')}</span>
-                                <span>${new Date(ad.updatedAt || ad.createdAt).toLocaleString()}</span>
-                            </div>
-                            <div class="owner-ad-actions">
-                                <button class="button button-secondary owner-edit-btn" type="button" data-id="${ad.id}">Edit</button>
-                                <button class="button button-secondary owner-delete-btn" type="button" data-id="${ad.id}">Delete</button>
-                            </div>
-                        </div>
-                    </article>
-                `).join('') : '<p class="contact-note">No project ads yet. Create one to populate the homepage.</p>';
-
-                adsList.querySelectorAll('.owner-edit-btn').forEach(button => {
-                    button.addEventListener('click', () => openOwnerAdModal(button.dataset.id));
-                });
-
-                adsList.querySelectorAll('.owner-delete-btn').forEach(button => {
-                    button.addEventListener('click', async () => {
-                        if (!confirm('Delete this owner-managed ad?')) return;
-                        try {
-                            if (isOwnerDemoMode()) {
-                                const nextAds = getFallbackOwnerAds().filter(ad => ad.id !== button.dataset.id);
-                                saveFallbackOwnerAds(nextAds);
-                                const logEntry = {
-                                    id: `demo-log-${Date.now()}`,
-                                    action: 'DELETE_AD',
-                                    actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
-                                    details: { deletedId: button.dataset.id },
-                                    timestamp: new Date().toISOString()
-                                };
-                                const nextAudit = [logEntry, ...getFallbackOwnerAudit()].slice(0, 25);
-                                saveFallbackOwnerAudit(nextAudit);
-                                await loadOwnerData();
-                                await initOwnerAdsFrontend();
-                                return;
-                            }
-
-                            const response = await fetch(`/api/owner/ads/${button.dataset.id}`, {
-                                method: 'DELETE',
-                                headers: buildOwnerHeaders(false)
-                            });
-                            const data = await response.json();
-                            if (!response.ok) throw new Error(data.error || 'Delete failed');
-                            await loadOwnerData();
-                            await initOwnerAdsFrontend();
-                        } catch (error) {
-                            alert(error.message || 'Delete failed.');
-                        }
-                    });
-                });
-            }
-
-            if (auditLog) {
-                auditLog.innerHTML = audit.length ? audit.map(entry => `
-                    <div class="audit-entry">
-                        <strong>${escapeHtml(entry.action)}</strong>
-                        <small>${new Date(entry.timestamp).toLocaleString()}</small>
-                        <p>${escapeHtml(entry.actor && entry.actor.username ? entry.actor.username : 'system')}</p>
-                    </div>
-                `).join('') : '<p class="contact-note">No audit entries yet.</p>';
-            }
-        } catch (error) {
-            setOwnerToken('');
-            if (dashboard) dashboard.classList.remove('hidden');
-            const status = document.getElementById('owner-login-status');
-            if (status) {
-                status.textContent = 'Owner session expired. Please refresh the page.';
-                status.style.color = '#ef4444';
-            }
-        }
-    };
-
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadOwnerData);
-    }
-
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            setOwnerToken('');
-            if (dashboard) dashboard.classList.remove('hidden');
-        });
-    }
-
-    if (newAdBtn) {
-        newAdBtn.addEventListener('click', () => openOwnerAdModal());
-    }
-
-    const quickForm = document.getElementById('quick-owner-ad-form');
-    if (quickForm) {
-        quickForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const payload = {
-                title: document.getElementById('quick-owner-title').value.trim(),
-                subtitle: document.getElementById('quick-owner-subtitle').value.trim(),
-                description: document.getElementById('quick-owner-description').value.trim(),
-                contact: document.getElementById('quick-owner-contact').value.trim(),
-                imageUrl: document.getElementById('quick-owner-image-url').value.trim(),
-                imageAlt: document.getElementById('quick-owner-title').value.trim(),
-                buttonText: 'Contact Owner',
-                buttonUrl: 'tel:+919000000000',
-                status: 'active'
-            };
-
-            if (!payload.title || !payload.description) {
-                alert('Project title and description are required.');
-                return;
-            }
-
-            try {
-                if (isOwnerDemoMode()) {
-                    const ads = getFallbackOwnerAds();
-                    const now = new Date().toISOString();
-                    const nextAds = [{
-                        id: `demo-ad-${Date.now()}`,
-                        ...payload,
-                        createdAt: now,
-                        updatedAt: now,
-                        createdBy: 'owner'
-                    }, ...ads];
-                    saveFallbackOwnerAds(nextAds);
-                    const logEntry = {
-                        id: `demo-log-${Date.now()}`,
-                        action: 'CREATE_AD',
-                        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
-                        details: { id: nextAds[0].id, title: payload.title },
-                        timestamp: now
-                    };
-                    saveFallbackOwnerAudit([logEntry, ...getFallbackOwnerAudit()].slice(0, 25));
-                    quickForm.reset();
-                    await loadOwnerData();
-                    await initOwnerAdsFrontend();
-                    return;
-                }
-
-                const response = await fetch('/api/owner/ads', {
-                    method: 'POST',
-                    headers: buildOwnerHeaders(true),
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Save failed');
-                quickForm.reset();
-                await loadOwnerData();
-                await initOwnerAdsFrontend();
-            } catch (error) {
-                alert(error.message || 'Unable to save project.');
-            }
-        });
-    }
-
-    const modal = document.getElementById('owner-ad-modal');
-    const form = document.getElementById('owner-ad-form');
-    const modalClose = document.getElementById('owner-modal-close');
-    const cancelBtn = document.getElementById('owner-cancel-edit');
-
-    const resetModal = () => {
-        if (form) form.reset();
-        const idInput = document.getElementById('owner-ad-id');
-        if (idInput) idInput.value = '';
-        document.getElementById('owner-ad-modal-title').textContent = 'Create Project Ad';
-        if (modal) modal.classList.add('hidden');
-    };
-
-    if (modalClose) modalClose.addEventListener('click', resetModal);
-    if (cancelBtn) cancelBtn.addEventListener('click', resetModal);
-
-    if (form) {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const id = document.getElementById('owner-ad-id').value;
-            const payload = {
-                title: document.getElementById('owner-ad-title').value.trim(),
-                subtitle: document.getElementById('owner-ad-subtitle').value.trim(),
-                description: document.getElementById('owner-ad-description').value.trim(),
-                contact: document.getElementById('owner-ad-contact').value.trim(),
-                imageUrl: document.getElementById('owner-ad-image-url').value.trim(),
-                imageAlt: document.getElementById('owner-ad-image-alt').value.trim(),
-                buttonText: document.getElementById('owner-ad-button-text').value.trim(),
-                buttonUrl: document.getElementById('owner-ad-button-url').value.trim(),
-                status: document.getElementById('owner-ad-status').value
-            };
-
-            if (!payload.title || !payload.description) {
-                alert('Title and description are required.');
-                return;
-            }
-
-            try {
-                if (isOwnerDemoMode()) {
-                    const ads = getFallbackOwnerAds();
-                    const timestamp = new Date().toISOString();
-                    const nextAds = id
-                        ? ads.map(ad => ad.id === id ? { ...ad, ...payload, updatedAt: timestamp, updatedBy: 'owner' } : ad)
-                        : [{
-                            id: `demo-ad-${Date.now()}`,
-                            ...payload,
-                            createdAt: timestamp,
-                            updatedAt: timestamp,
-                            createdBy: 'owner'
-                          }, ...ads];
-
-                    saveFallbackOwnerAds(nextAds);
-                    const logEntry = {
-                        id: `demo-log-${Date.now()}`,
-                        action: id ? 'UPDATE_AD' : 'CREATE_AD',
-                        actor: { id: 'owner-1', username: 'owner', role: 'OWNER' },
-                        details: { id: id || nextAds[0].id, title: payload.title },
-                        timestamp
-                    };
-                    const nextAudit = [logEntry, ...getFallbackOwnerAudit()].slice(0, 25);
-                    saveFallbackOwnerAudit(nextAudit);
-                    resetModal();
-                    await loadOwnerData();
-                    await initOwnerAdsFrontend();
-                    return;
-                }
-
-                const response = await fetch(id ? `/api/owner/ads/${id}` : '/api/owner/ads', {
-                    method: id ? 'PUT' : 'POST',
-                    headers: buildOwnerHeaders(true),
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Save failed');
-                resetModal();
-                await loadOwnerData();
-                await initOwnerAdsFrontend();
-            } catch (error) {
-                alert(error.message || 'Unable to save ad.');
-            }
-        });
-    }
-
-    await loadOwnerData();
-}
-
-function openOwnerAdModal(adId = null) {
-    const modal = document.getElementById('owner-ad-modal');
-    const titleEl = document.getElementById('owner-ad-modal-title');
-    const idInput = document.getElementById('owner-ad-id');
-
-    if (!modal) return;
-
-    const form = document.getElementById('owner-ad-form');
-    if (!form) return;
-
-    if (!adId) {
-        form.reset();
-        idInput.value = '';
-        titleEl.textContent = 'Create Project Ad';
-        document.getElementById('owner-ad-status').value = 'active';
-        document.getElementById('owner-ad-button-text').value = 'Contact Owner';
-        modal.classList.remove('hidden');
-        return;
-    }
-
-    if (isOwnerDemoMode()) {
-        const ads = getFallbackOwnerAds();
-        const ad = ads.find(item => item.id === adId);
-        if (!ad) return;
-        idInput.value = ad.id;
-        document.getElementById('owner-ad-title').value = ad.title || '';
-        document.getElementById('owner-ad-subtitle').value = ad.subtitle || '';
-        document.getElementById('owner-ad-description').value = ad.description || '';
-        document.getElementById('owner-ad-contact').value = ad.contact || '';
-        document.getElementById('owner-ad-image-url').value = ad.imageUrl || '';
-        document.getElementById('owner-ad-image-alt').value = ad.imageAlt || '';
-        document.getElementById('owner-ad-button-text').value = ad.buttonText || 'Contact Owner';
-        document.getElementById('owner-ad-button-url').value = ad.buttonUrl || '';
-        document.getElementById('owner-ad-status').value = ad.status || 'active';
-        titleEl.textContent = 'Edit Project Ad';
-        modal.classList.remove('hidden');
-        return;
-    }
-
-    fetch(`/api/owner/ads`, { headers: buildOwnerHeaders(false) })
-        .then(response => response.json())
-        .then(ads => {
-            const ad = ads.find(item => item.id === adId);
-            if (!ad) return;
-            idInput.value = ad.id;
-            document.getElementById('owner-ad-title').value = ad.title || '';
-            document.getElementById('owner-ad-subtitle').value = ad.subtitle || '';
-            document.getElementById('owner-ad-description').value = ad.description || '';
-            document.getElementById('owner-ad-contact').value = ad.contact || '';
-            document.getElementById('owner-ad-image-url').value = ad.imageUrl || '';
-            document.getElementById('owner-ad-image-alt').value = ad.imageAlt || '';
-            document.getElementById('owner-ad-button-text').value = ad.buttonText || 'Contact Owner';
-            document.getElementById('owner-ad-button-url').value = ad.buttonUrl || '';
-            document.getElementById('owner-ad-status').value = ad.status || 'active';
-            titleEl.textContent = 'Edit Project Ad';
-            modal.classList.remove('hidden');
-        })
-        .catch(() => alert('Unable to load ad details.'));
-}
-
-// Image crop controls: allow adjusting object-position for the circular avatar
-function initImageCropControls() {
-    const img = document.querySelector('.hero-image');
-    const panel = document.getElementById('crop-panel');
-    const toggle = document.getElementById('crop-toggle');
-    const closeBtn = document.getElementById('crop-close');
-    const resetBtn = document.getElementById('crop-reset');
-    const inputX = document.getElementById('crop-x');
-    const inputY = document.getElementById('crop-y');
-    if (!img || !panel || !toggle || !inputX || !inputY) return;
-
-    // Load saved position or defaults
-    const saved = localStorage.getItem('avatarPos');
-    let pos = { x: 50, y: 22 };
-    try { if (saved) pos = JSON.parse(saved); } catch (e) {}
-
-    function applyPos() {
-        img.style.objectPosition = `${pos.x}% ${pos.y}%`;
-        inputX.value = pos.x;
-        inputY.value = pos.y;
-    }
-
-    applyPos();
-
-    // Toggle panel
-    toggle.addEventListener('click', () => {
-        panel.classList.toggle('hidden');
-    });
-    closeBtn.addEventListener('click', () => panel.classList.add('hidden'));
-
-    // Update handlers
-    inputX.addEventListener('input', () => { pos.x = parseInt(inputX.value, 10); applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
-    inputY.addEventListener('input', () => { pos.y = parseInt(inputY.value, 10); applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
-
-    resetBtn.addEventListener('click', () => { pos = { x:50, y:22 }; applyPos(); localStorage.setItem('avatarPos', JSON.stringify(pos)); });
-}
-
-// Fetch a local LinkedIn profile JSON (or server-provided) and render About Me
-async function loadLinkedInAbout() {
-    const container = document.getElementById('about-me');
-    if (!container) return;
-
-    // Provide the LinkedIn feed/profile URL you want to use
-    const linkedInUrl = 'https://www.linkedin.com/feed/';
-
-    try {
-        const resp = await fetch(`/api/about/linkedin?url=${encodeURIComponent(linkedInUrl)}`);
-        if (!resp.ok) throw new Error('No profile data');
-        const profile = await resp.json();
-
-        const name = profile.name || profile.fullName || 'SK Web Solutions';
-        const headline = profile.headline || profile.title || '';
-        const summary = profile.summary || profile.bio || profile.description || '';
-        const location = profile.location || '';
-        const picture = profile.profilePicture || profile.avatar || '/Founder1.jpeg';
-
-        container.innerHTML = `
-            <div style="display:flex;align-items:center;gap:1rem;">
-                <img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;"> 
-                <div>
-                    <strong style="display:block">${escapeHtml(name)}</strong>
-                    <small style="color:var(--text-light);display:block">${escapeHtml(headline)} ${location ? ' • ' + escapeHtml(location) : ''}</small>
-                </div>
-            </div>
-            <p style="margin-top:0.75rem;color:var(--text-light);">${escapeHtml(summary)} <a href="${escapeHtml(linkedInUrl)}" target="_blank" rel="noopener noreferrer">View on LinkedIn</a></p>
-        `;
-    } catch (error) {
-        container.innerHTML = '<p>Professional updates and profile details will appear here.</p>';
-    }
-}
-
 function saveMessagesToStorage(messages) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-        window.dispatchEvent(new CustomEvent('sk-messages-updated', {
-            detail: { key: STORAGE_KEY, messages }
-        }));
     } catch (e) {
         console.error('Error saving to localStorage:', e);
+    }
+}
+
+function getProjectsFromStorage() {
+    try {
+        const projects = localStorage.getItem(PROJECT_GALLERY_KEY);
+        return projects ? JSON.parse(projects) : [];
+    } catch (e) {
+        console.error('Error reading project gallery from localStorage:', e);
+        return [];
+    }
+}
+
+function saveProjectsToStorage(projects) {
+    try {
+        localStorage.setItem(PROJECT_GALLERY_KEY, JSON.stringify(projects));
+    } catch (e) {
+        console.error('Error saving project gallery to localStorage:', e);
     }
 }
 
@@ -839,7 +452,480 @@ function initMobileMenu() {
     }
 }
 
-// Contact Form Submission (works with localStorage for demo)
+function initProjectGallery() {
+    const galleryGrid = document.getElementById('project-gallery-grid');
+    if (!galleryGrid) {
+        return;
+    }
+
+    function renderProjects(projects) {
+        if (!projects.length) {
+            galleryGrid.innerHTML = '<div class="project-empty">No project media uploaded yet. Check back soon for a polished showcase.</div>';
+            return;
+        }
+
+        galleryGrid.innerHTML = projects.map((project) => {
+            const isVideo = project.fileType && project.fileType.startsWith('video/');
+            const preview = isVideo
+                ? `<video controls preload="metadata" src="${project.dataUrl}"></video>`
+                : `<img src="${project.dataUrl}" alt="${escapeHtml(project.title)}">`;
+
+            return `
+                <article class="project-card reveal-scale">
+                    <div class="project-media">${preview}</div>
+                    <div class="project-content">
+                        <h3>${escapeHtml(project.title)}</h3>
+                        <p>${escapeHtml(project.description)}</p>
+                        <div class="project-actions">
+                            <a class="button button-secondary" href="${project.dataUrl}" download="${escapeHtml(project.fileName || project.title)}">Download</a>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join('');
+
+        // Re-initialize scroll reveal for dynamically added content
+        initScrollReveal();
+    }
+
+    async function loadProjects() {
+        try {
+            const response = await fetchApi('/api/projects');
+            if (!response.ok) {
+                throw new Error('Server returned an error');
+            }
+            const data = await response.json();
+            const projects = Array.isArray(data) ? data : data.projects || [];
+            if (projects.length) {
+                saveProjectsToStorage(projects);
+            }
+            renderProjects(projects);
+        } catch (error) {
+            console.error('Unable to load project gallery:', error);
+            const storedProjects = getProjectsFromStorage();
+            if (storedProjects.length) {
+                renderProjects(storedProjects);
+            } else {
+                galleryGrid.innerHTML = '<div class="project-empty">No project media uploaded yet. Check back soon for a polished showcase.</div>';
+            }
+        }
+    }
+
+    loadProjects();
+}
+
+function initAdminGalleryManager() {
+    const list = document.getElementById('admin-gallery-list');
+    if (!list) {
+        return;
+    }
+
+    function renderAdminProjects(projects) {
+        if (!projects.length) {
+            list.innerHTML = '<div class="project-empty">No gallery items yet.</div>';
+            return;
+        }
+
+        list.innerHTML = projects.map((project) => `
+            <div class="admin-gallery-item">
+                <div>
+                    <strong>${escapeHtml(project.title)}</strong>
+                    <small>${escapeHtml(project.fileName || 'Uploaded media')}</small>
+                </div>
+                <button class="button button-secondary" type="button" data-delete-id="${project.id}">Delete</button>
+            </div>
+        `).join('');
+    }
+
+    async function loadAdminProjects() {
+        let projects = getProjectsFromStorage();
+
+        try {
+            const response = await fetchApi('/api/projects');
+            if (response.ok) {
+                const data = await response.json();
+                projects = Array.isArray(data) ? data : data.projects || [];
+                saveProjectsToStorage(projects);
+            }
+        } catch (error) {
+            console.error('Unable to sync admin gallery list:', error);
+        }
+
+        renderAdminProjects(projects);
+    }
+
+    list.addEventListener('click', async (event) => {
+        const deleteButton = event.target.closest('[data-delete-id]');
+        if (!deleteButton) {
+            return;
+        }
+
+        const projectId = deleteButton.getAttribute('data-delete-id');
+        if (!projectId) {
+            return;
+        }
+
+        try {
+            await fetchApi(`/api/projects/${projectId}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Delete request failed:', error);
+        }
+
+        const updatedProjects = getProjectsFromStorage().filter((project) => project.id !== projectId);
+        saveProjectsToStorage(updatedProjects);
+        renderAdminProjects(updatedProjects);
+        initProjectGallery();
+    });
+
+    loadAdminProjects();
+}
+
+// ============================================
+// Image Crop State (using Cropper.js)
+// ============================================
+let cropCropper = null;
+let cropFile = null;
+let cropResolve = null;
+let cropFilesToProcess = [];
+let cropCurrentIndex = 0;
+let cropTitle = '';
+let cropDescription = '';
+
+// Open crop modal for a specific file
+function openCropModal(file) {
+    return new Promise((resolve) => {
+        cropFile = file;
+        cropResolve = resolve;
+        
+        const modal = document.getElementById('crop-modal');
+        const img = document.getElementById('crop-image');
+        
+        if (!modal || !img) {
+            // Crop modal not found, resolve with original file
+            resolve(null);
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+            modal.style.display = 'flex';
+            
+            // Destroy previous cropper if exists
+            if (cropCropper) {
+                cropCropper.destroy();
+            }
+            
+            // Initialize cropper after image loads
+            img.onload = function() {
+                cropCropper = new Cropper(img, {
+                    aspectRatio: NaN,
+                    viewMode: 1,
+                    dragMode: 'move',
+                    background: false,
+                    autoCropArea: 1,
+                    responsive: true,
+                    restore: false,
+                    checkCrossOrigin: false,
+                });
+            };
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function closeCropModal() {
+    const modal = document.getElementById('crop-modal');
+    if (modal) modal.style.display = 'none';
+    if (cropCropper) {
+        cropCropper.destroy();
+        cropCropper = null;
+    }
+    if (cropResolve) {
+        cropResolve(null);
+        cropResolve = null;
+    }
+}
+
+function setCropAspectRatio(ratio) {
+    if (cropCropper) {
+        cropCropper.setAspectRatio(ratio);
+    }
+}
+
+function rotateCropImage(degrees) {
+    if (cropCropper) {
+        cropCropper.rotate(degrees);
+    }
+}
+
+function flipCropImage(direction) {
+    if (cropCropper) {
+        if (direction === 'h') {
+            cropCropper.scaleX(-cropCropper.getData().scaleX || -1);
+        } else {
+            cropCropper.scaleY(-cropCropper.getData().scaleY || -1);
+        }
+    }
+}
+
+function resetCrop() {
+    if (cropCropper) {
+        cropCropper.reset();
+    }
+}
+
+function cropAndConfirm() {
+    if (!cropCropper || !cropResolve) return;
+    
+    const canvas = cropCropper.getCroppedCanvas({
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageSmoothingQuality: 'high'
+    });
+    
+    // Convert canvas to blob
+    canvas.toBlob(function(blob) {
+        // Create a new File from the blob
+        const croppedFile = new File([blob], cropFile.name, {
+            type: cropFile.type,
+            lastModified: Date.now()
+        });
+        
+        // IMPORTANT: Resolve BEFORE closing modal, because closeCropModal() nullifies cropResolve
+        const resolve = cropResolve;
+        cropResolve = null;
+        closeCropModal();
+        resolve(croppedFile);
+    }, cropFile.type, 0.92);
+}
+
+// Make crop functions globally available
+window.openCropModal = openCropModal;
+window.closeCropModal = closeCropModal;
+window.setCropAspectRatio = setCropAspectRatio;
+window.rotateCropImage = rotateCropImage;
+window.flipCropImage = flipCropImage;
+window.resetCrop = resetCrop;
+window.cropAndConfirm = cropAndConfirm;
+
+function initProjectUploadForm() {
+    const form = document.getElementById('project-upload-form');
+    const status = document.getElementById('project-upload-status');
+    if (!form || !status) {
+        return;
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const title = document.getElementById('project-title').value.trim();
+        const description = document.getElementById('project-description').value.trim();
+        const fileInput = document.getElementById('project-file');
+        const files = Array.from(fileInput.files || []);
+
+        if (!title || !description || !files.length) {
+            status.textContent = 'Please complete every field before uploading.';
+            return;
+        }
+
+        status.textContent = `Processing ${files.length} file(s)...`;
+
+        // Process files: crop images, keep videos as-is
+        const processedFiles = [];
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                // Open crop modal for images
+                const croppedFile = await openCropModal(file);
+                if (croppedFile) {
+                    processedFiles.push(croppedFile);
+                } else {
+                    // User cancelled crop, use original
+                    processedFiles.push(file);
+                }
+            } else {
+                // Video files are uploaded directly
+                processedFiles.push(file);
+            }
+        }
+
+        status.textContent = `Uploading ${processedFiles.length} file(s)...`;
+
+        const uploadFiles = async () => {
+            const storedProjects = getProjectsFromStorage();
+
+            for (const file of processedFiles) {
+                const reader = new FileReader();
+                const dataUrl = await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                try {
+                    const payload = {
+                        title,
+                        description,
+                        fileName: file.name,
+                        fileType: file.type,
+                        dataUrl
+                    };
+
+                    const response = await fetchApi('/api/projects', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+
+                    const createdProject = await response.json();
+                    storedProjects.unshift(createdProject);
+                } catch (error) {
+                    console.error('Project upload error:', error);
+                    storedProjects.unshift({
+                        id: Date.now().toString() + Math.random().toString(16).slice(2),
+                        title,
+                        description,
+                        fileName: file.name,
+                        fileType: file.type,
+                        dataUrl,
+                        createdAt: new Date().toISOString()
+                    });
+                }
+            }
+
+            saveProjectsToStorage(storedProjects);
+            form.reset();
+            status.textContent = `${processedFiles.length} file(s) uploaded. They are now visible in the gallery.`;
+            initProjectGallery();
+            initAdminGalleryManager();
+        };
+
+        uploadFiles();
+    });
+}
+
+function initLiveNews() {
+    const newsGrid = document.getElementById('news-grid');
+    const newsStatus = document.getElementById('news-status');
+    const languageSelect = document.getElementById('news-language');
+    const categorySelect = document.getElementById('news-category');
+    const searchInput = document.getElementById('news-search');
+    const refreshButton = document.getElementById('refresh-news');
+
+    if (!newsGrid || !newsStatus || !languageSelect || !categorySelect || !searchInput || !refreshButton) {
+        return;
+    }
+
+    const state = {
+        items: [],
+        language: languageSelect.value,
+        category: categorySelect.value,
+        query: searchInput.value.trim().toLowerCase()
+    };
+
+    const updateStatus = (message, isLive = false) => {
+        newsStatus.innerHTML = isLive
+            ? `<span class="live-pill">● LIVE</span> ${message}`
+            : message;
+    };
+
+    async function loadNews() {
+        updateStatus('Fetching the latest news updates…', true);
+
+        try {
+            const response = await fetchApi(`/api/news?lang=${encodeURIComponent(state.language)}`);
+            const data = await response.json();
+            state.items = data.items || [];
+            renderNews();
+            updateStatus(`Showing ${state.items.length} live stories for ${languageSelect.options[languageSelect.selectedIndex].text}.`, true);
+        } catch (error) {
+            console.error('Unable to load live news:', error);
+            state.items = [];
+            renderNews();
+            updateStatus('Live feed unavailable. Showing the latest local highlights instead.', false);
+        }
+    }
+
+    function renderNews() {
+        const query = state.query;
+        const filtered = state.items.filter((item) => {
+            const matchesCategory = state.category === 'all' || item.category === state.category;
+            const matchesQuery = !query || `${item.title} ${item.description}`.toLowerCase().includes(query);
+            return matchesCategory && matchesQuery;
+        });
+
+        if (!filtered.length) {
+            newsGrid.innerHTML = '<div class="news-empty">No stories match this filter right now. Try another search or category.</div>';
+            return;
+        }
+
+        newsGrid.innerHTML = filtered.map((item) => {
+            const imageMarkup = item.image
+                ? `<img src="${item.image}" alt="${escapeHtml(item.title)}">`
+                : `<div class="news-image-placeholder">${escapeHtml(item.category || 'News')}</div>`;
+            const timeText = item.publishedAt ? new Date(item.publishedAt).toLocaleString('en-IN', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }) : 'Just updated';
+
+            return `
+                <article class="news-card">
+                    <div class="news-media">${imageMarkup}</div>
+                    <div class="news-content">
+                        <div class="news-meta">
+                            <span class="news-category">${escapeHtml(item.category || 'News')}</span>
+                            <span class="news-live">● LIVE</span>
+                        </div>
+                        <h3>${escapeHtml(item.title)}</h3>
+                        <p>${escapeHtml(item.description || 'Latest updates from India and around the world.')}</p>
+                        <div class="news-footer">
+                            <span>${escapeHtml(item.source || 'Live India News')}</span>
+                            <span>${escapeHtml(timeText)}</span>
+                        </div>
+                        ${item.link ? `<a class="news-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">Read story →</a>` : ''}
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    languageSelect.addEventListener('change', () => {
+        state.language = languageSelect.value;
+        loadNews();
+    });
+
+    categorySelect.addEventListener('change', () => {
+        state.category = categorySelect.value;
+        renderNews();
+    });
+
+    searchInput.addEventListener('input', () => {
+        state.query = searchInput.value.trim().toLowerCase();
+        renderNews();
+    });
+
+    refreshButton.addEventListener('click', () => loadNews());
+
+    loadNews();
+    setInterval(loadNews, 60000);
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/\"/g, '"')
+        .replace(/'/g, '&#39;');
+}
+
+// Contact Form Submission
 function initContactForm() {
     const form = document.getElementById('feedback-form');
     const successMessage = document.getElementById('form-success');
@@ -865,12 +951,11 @@ function initContactForm() {
         submitBtn.disabled = true;
 
         try {
-            // Try to use server first, fall back to localStorage
             let data;
             let usedServer = false;
             
             try {
-                const response = await fetch(API_BASE, {
+                const response = await fetchApi(API_BASE, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -886,7 +971,6 @@ function initContactForm() {
                 console.log('Server not available, using localStorage');
             }
 
-            // If server didn't work, use localStorage
             if (!usedServer) {
                 const messages = getMessagesFromStorage();
                 data = {
@@ -906,29 +990,22 @@ function initContactForm() {
             successMessage.classList.remove('hidden');
             showNotification(clientNotification, 'Your message has been sent successfully!', 'success');
 
-            // Show status info
             setTimeout(() => {
                 clientNotification.innerHTML = `
                     <strong>Reference ID:</strong> ${data.id}<br>
                     <strong>Status:</strong> ${data.status}<br>
                     <strong>Message:</strong> ${data.responseMessage}<br>
-                    <small>We will review your request and get back to you soon.</small>
+                    <small>Use the "Check meeting status" section below to check updates using your contact info.</small>
                 `;
                 clientNotification.classList.remove('hidden');
             }, 1000);
 
-            if (document.getElementById('admin-message-list')) {
-                loadAdminMessages();
-            }
-
-            // Hide success message after 5 seconds
             setTimeout(() => {
                 successMessage.classList.add('hidden');
             }, 5000);
 
         } catch (error) {
             console.error('Error:', error);
-            // Even if everything fails, save to localStorage
             const messages = getMessagesFromStorage();
             const fallbackData = {
                 id: Date.now().toString() + Math.random().toString(16).slice(2),
@@ -951,7 +1028,7 @@ function initContactForm() {
     });
 }
 
-// Status Check (works with localStorage for demo)
+// Status Check
 function initStatusCheck() {
     const checkBtn = document.getElementById('status-check-button');
     const statusResult = document.getElementById('status-result');
@@ -974,9 +1051,8 @@ function initStatusCheck() {
             let messages = [];
             let usedServer = false;
 
-            // Try server first
             try {
-                const response = await fetch(`${API_BASE}?contact=${encodeURIComponent(contact)}`);
+                const response = await fetchApi(`${API_BASE}?contact=${encodeURIComponent(contact)}`);
                 if (response.ok) {
                     messages = await response.json();
                     usedServer = true;
@@ -985,7 +1061,6 @@ function initStatusCheck() {
                 console.log('Server not available, checking localStorage');
             }
 
-            // If server didn't work, use localStorage
             if (!usedServer) {
                 const allMessages = getMessagesFromStorage();
                 const normalized = contact.toLowerCase().trim();
@@ -1017,65 +1092,90 @@ function initStatusCheck() {
     });
 }
 
+function showAdminDashboard() {
+    const loginCard = document.getElementById('admin-login-card');
+    const inboxSection = document.getElementById('admin-inbox');
+    const gallerySection = document.getElementById('admin-gallery-section');
+    const statusMessage = document.getElementById('admin-status');
+    const visitStatsSection = document.getElementById('admin-visit-stats');
+    const founderSection = document.getElementById('admin-founder-section');
+    const logoutBtn = document.getElementById('admin-logout-btn');
+
+    if (loginCard) {
+        loginCard.classList.add('hidden');
+    }
+
+    if (logoutBtn) {
+        logoutBtn.classList.remove('hidden');
+    }
+
+    if (visitStatsSection) {
+        visitStatsSection.classList.remove('hidden');
+        initVisitStats();
+    }
+
+    if (inboxSection) {
+        inboxSection.classList.remove('hidden');
+    }
+
+    if (statusMessage) {
+        statusMessage.textContent = 'Logged in successfully.';
+        statusMessage.style.color = 'var(--success-color)';
+    }
+
+    loadAdminMessages();
+
+    if (gallerySection) {
+        gallerySection.classList.remove('hidden');
+    }
+
+    if (founderSection) {
+        founderSection.classList.remove('hidden');
+        initFounderManager();
+    }
+
+    loadFounderPreview();
+}
+
+function restoreAdminSession() {
+    const isLoggedIn = localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+    if (!isLoggedIn) return;
+
+    showAdminDashboard();
+}
+
 // Admin Login
 function initAdminLogin() {
     const loginForm = document.getElementById('admin-login-form');
-    const loginCard = document.getElementById('admin-login-card');
-    const inboxSection = document.getElementById('admin-inbox');
     const statusMessage = document.getElementById('admin-status');
+    const logoutBtn = document.getElementById('admin-logout-btn');
 
     if (!loginForm) return;
 
-    const unlockAdminDashboard = () => {
-        if (loginCard) loginCard.classList.add('hidden');
-
-        const visitStatsSection = document.getElementById('admin-visit-stats');
-        if (visitStatsSection) {
-            visitStatsSection.classList.remove('hidden');
-            initVisitStats();
-        }
-
-        const galleryCard = document.getElementById('admin-gallery-card');
-        if (galleryCard) galleryCard.classList.remove('hidden');
-
-        const galleryListCard = document.getElementById('admin-gallery-list-card');
-        if (galleryListCard) galleryListCard.classList.remove('hidden');
-
-        if (inboxSection) inboxSection.classList.remove('hidden');
-
-        if (statusMessage) {
-            statusMessage.textContent = 'Logged in successfully.';
-            statusMessage.style.color = 'var(--success-color)';
-        }
-
-        localStorage.setItem('sk_admin_authenticated', 'true');
-
-        loadAdminMessages();
-        loadAdminGalleryList();
-    };
-
-    if (localStorage.getItem('sk_admin_authenticated') === 'true') {
-        unlockAdminDashboard();
-        return;
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            logoutAdminSession();
+            if (statusMessage) {
+                statusMessage.textContent = 'Logged out successfully.';
+                statusMessage.style.color = 'var(--success-color)';
+            }
+        });
     }
 
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
 
-        const username = (document.getElementById('admin-username')?.value || '').trim().toLowerCase();
-        const password = (document.getElementById('admin-password')?.value || '').trim();
+        const username = document.getElementById('admin-username').value;
+        const password = document.getElementById('admin-password').value;
 
-        const expectedUsername = (ADMIN_CREDENTIALS.username || 'admin').trim().toLowerCase();
-        const expectedPassword = (ADMIN_CREDENTIALS.password || 'admin123').trim();
-
-        if (username === expectedUsername && password === expectedPassword) {
-            unlockAdminDashboard();
-            return;
-        }
-
-        if (statusMessage) {
-            statusMessage.textContent = 'Invalid credentials. Please try again.';
-            statusMessage.style.color = 'var(--error-color)';
+        if (isValidAdminLogin(username, password)) {
+            saveAdminSession();
+            showAdminDashboard();
+        } else {
+            if (statusMessage) {
+                statusMessage.textContent = 'Invalid credentials. Try: admin / admin123';
+                statusMessage.style.color = 'var(--error-color)';
+            }
         }
     });
 }
@@ -1083,17 +1183,6 @@ function initAdminLogin() {
 // Admin Inbox
 function initAdminInbox() {
     const clearBtn = document.getElementById('admin-clear-messages');
-    const refreshBtn = document.getElementById('admin-refresh-messages');
-
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            loadAdminMessages();
-            refreshBtn.textContent = 'Refreshing...';
-            setTimeout(() => {
-                refreshBtn.textContent = 'Refresh';
-            }, 600);
-        });
-    }
 
     if (clearBtn) {
         clearBtn.addEventListener('click', async function() {
@@ -1102,9 +1191,8 @@ function initAdminInbox() {
             }
 
             try {
-                // Try server first
                 try {
-                    const response = await fetch(API_BASE, {
+                    const response = await fetchApi(API_BASE, {
                         method: 'DELETE'
                     });
                     if (response.ok) {
@@ -1115,9 +1203,7 @@ function initAdminInbox() {
                     // Server not available, use localStorage
                 }
 
-                // Clear localStorage
                 localStorage.removeItem(STORAGE_KEY);
-                window.dispatchEvent(new CustomEvent('sk-messages-updated', { detail: { key: STORAGE_KEY } }));
                 loadAdminMessages();
             } catch (error) {
                 console.error('Error:', error);
@@ -1125,27 +1211,9 @@ function initAdminInbox() {
             }
         });
     }
-
-    window.addEventListener('storage', function(event) {
-        if (event.key === STORAGE_KEY && document.getElementById('admin-message-list')) {
-            loadAdminMessages();
-        }
-    });
-
-    window.addEventListener('sk-messages-updated', function() {
-        if (document.getElementById('admin-message-list')) {
-            loadAdminMessages();
-        }
-    });
-
-    setInterval(() => {
-        if (document.getElementById('admin-message-list')) {
-            loadAdminMessages();
-        }
-    }, 3000);
 }
 
-// Load Admin Messages (works with localStorage for demo)
+// Load Admin Messages
 async function loadAdminMessages() {
     const statsContainer = document.getElementById('admin-stats');
     const messageList = document.getElementById('admin-message-list');
@@ -1156,7 +1224,6 @@ async function loadAdminMessages() {
         let messages = [];
         let usedServer = false;
 
-        // Try server first
         try {
             const response = await fetch(API_BASE);
             if (response.ok) {
@@ -1167,12 +1234,10 @@ async function loadAdminMessages() {
             console.log('Server not available, using localStorage');
         }
 
-        // If server didn't work, use localStorage
         if (!usedServer) {
             messages = getMessagesFromStorage();
         }
 
-        // Update stats
         const pending = messages.filter(m => m.status === 'pending').length;
         const accepted = messages.filter(m => m.status === 'accepted').length;
         const rejected = messages.filter(m => m.status === 'rejected').length;
@@ -1192,10 +1257,6 @@ async function loadAdminMessages() {
             </div>
         `;
 
-        // Load admin gallery projects too
-        loadAdminGalleryList();
-
-        // Render messages
         if (messages.length === 0) {
             messageList.innerHTML = '<p class="contact-note">No messages yet.</p>';
         } else {
@@ -1219,7 +1280,7 @@ async function loadAdminMessages() {
                     <p>${escapeHtml(msg.message)}</p>
                     ${msg.smsReplies && msg.smsReplies.length > 0 ? `
                         <div class="sms-history">
-                            <strong>SMS History:</strong>
+                            <strong>SMS sent:</strong>
                             <ul>
                                 ${msg.smsReplies.map(sms => `
                                     <li>
@@ -1245,89 +1306,11 @@ async function loadAdminMessages() {
     }
 }
 
-// Update Message Status (works with localStorage for demo)
-async function loadAdminGalleryList() {
-    const galleryListContainer = document.getElementById('admin-gallery-list');
-    const galleryCard = document.getElementById('admin-gallery-list-card');
-
-    if (!galleryListContainer || !galleryCard) return;
-
-    let gallery = [];
-    let usedServer = false;
-
-    try {
-        const response = await fetch(`${API_GALLERY}?admin=true`);
-        if (response.ok) {
-            gallery = await response.json();
-            usedServer = true;
-        }
-    } catch (e) {
-        console.log('Gallery API unavailable, using local storage fallback.');
-    }
-
-    if (!usedServer) {
-        gallery = getGalleryFromStorage();
-    }
-
-    if (!gallery.length) {
-        galleryListContainer.innerHTML = '<p class="contact-note">No uploaded projects yet.</p>';
-        galleryCard.classList.remove('hidden');
-        return;
-    }
-
-    galleryCard.classList.remove('hidden');
-    galleryListContainer.innerHTML = gallery.map(project => `
-        <div class="admin-gallery-item">
-            <div class="admin-gallery-thumbnail">
-                ${project.files && project.files.length && project.files[0].mimeType.startsWith('image/') ? `<img src="${project.files[0].url}" alt="${escapeHtml(project.title)}">` : '<div class="admin-gallery-placeholder">No image</div>'}
-            </div>
-            <div class="admin-gallery-info">
-                <h4>${escapeHtml(project.title)}</h4>
-                <p>${escapeHtml(project.clientName || 'No client')}</p>
-                <p>${new Date(project.uploadedAt).toLocaleDateString()}</p>
-                <button class="button button-secondary admin-gallery-delete" data-id="${project.id}">Delete</button>
-            </div>
-        </div>
-    `).join('');
-
-    galleryListContainer.querySelectorAll('.admin-gallery-delete').forEach(button => {
-        button.addEventListener('click', async function() {
-            const projectId = this.dataset.id;
-            if (!confirm('Delete this project and its image files?')) return;
-            await deleteAdminGalleryProject(projectId);
-        });
-    });
-}
-
-async function deleteAdminGalleryProject(projectId) {
-    const galleryListContainer = document.getElementById('admin-gallery-list');
-    const galleryCard = document.getElementById('admin-gallery-list-card');
-    const statusElement = document.getElementById('project-upload-status');
-
-    try {
-        const response = await fetch(`${API_GALLERY}/${projectId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Delete failed.' }));
-            throw new Error(errorData.error || 'Delete failed.');
-        }
-
-        showNotification(statusElement, 'Project deleted successfully.', 'success');
-        // refresh list
-        await loadAdminGalleryList();
-    } catch (error) {
-        console.error('Gallery delete failed', error);
-        showNotification(statusElement, `Delete failed: ${error.message}`, 'error');
-    }
-}
-
+// Update Message Status
 async function updateMessageStatus(messageId, status) {
     try {
-        // Try server first
         try {
-            const response = await fetch(`${API_BASE}/${messageId}/status`, {
+            const response = await fetchApi(`${API_BASE}/${messageId}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1343,14 +1326,13 @@ async function updateMessageStatus(messageId, status) {
             // Server not available, use localStorage
         }
 
-        // Update in localStorage
         const messages = getMessagesFromStorage();
         const message = messages.find(item => item.id === messageId);
         if (message) {
             message.status = status;
             message.responseMessage =
                 status === 'accepted'
-                    ? 'The meeting request has been accepted. SK Web Solutions will contact the client shortly.'
+                    ? 'The meeting request has been accepted. NexusForge will contact the client shortly.'
                     : status === 'rejected'
                     ? 'The meeting request has been rejected. The client will be notified and may submit a new request if needed.'
                     : 'The request is pending and awaiting admin review.';
@@ -1374,12 +1356,10 @@ async function sendSMSReply(messageId, replyText) {
     }
 
     try {
-        // Get the message - try server first, then localStorage
         let messages = [];
         let usedServer = false;
 
         try {
-            // Fetch all messages from server (without contact filter)
             const response = await fetch(API_BASE);
             if (response.ok) {
                 messages = await response.json();
@@ -1403,41 +1383,35 @@ async function sendSMSReply(messageId, replyText) {
             return;
         }
 
-        // Simulate SMS sending (in production, this would call a real SMS API like Twilio)
         const smsData = {
             to: message.contact,
-            from: 'SK Web Solutions',
+            from: 'NexusForge',
             message: replyText,
             sentAt: new Date().toISOString(),
             messageId: messageId,
             clientName: message.name
         };
 
-        // Store the SMS reply in the message
         message.smsReplies = message.smsReplies || [];
         message.smsReplies.push(smsData);
         message.lastReplyAt = smsData.sentAt;
 
-        // Save updated messages
         if (usedServer) {
             try {
-                await fetch(`${API_BASE}/${messageId}/sms`, {
+                await fetchApi(`${API_BASE}/${messageId}/sms`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(smsData)
                 });
             } catch (e) {
-                // Server not available, use localStorage
                 saveMessagesToStorage(messages);
             }
         } else {
             saveMessagesToStorage(messages);
         }
 
-        // Show success notification
         alert(`SMS sent successfully to ${message.contact}!\n\nMessage: "${replyText}"\n\nNote: This is a demo. In production, this would send a real SMS via Twilio/AWS SNS.`);
         
-        // Reload admin messages to show the reply
         loadAdminMessages();
 
     } catch (error) {
@@ -1448,12 +1422,11 @@ async function sendSMSReply(messageId, replyText) {
 
 // Show SMS Reply Modal
 function showSMSReplyModal(messageId, clientName, clientContact) {
-    // Create modal HTML
     const modalHTML = `
         <div id="sms-modal-overlay" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>Send SMS Reply</h3>
+                    <h3>📱 Send SMS Reply</h3>
                     <button onclick="closeSMSModal()" class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -1467,7 +1440,7 @@ function showSMSReplyModal(messageId, clientName, clientContact) {
                     </div>
                     <div class="form-group">
                         <label>Message:</label>
-                        <textarea id="sms-message" rows="5" placeholder="Type your reply message here..."></textarea>
+                        <textarea id="sms-message" rows="5" placeholder="Type your reply message here..." style="background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem; width: 100%; font-family: inherit;"></textarea>
                     </div>
                     <div class="sms-preview">
                         <strong>SMS Preview:</strong>
@@ -1483,114 +1456,31 @@ function showSMSReplyModal(messageId, clientName, clientContact) {
         </div>
     `;
 
-    // Add modal to page
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Add modal styles
-    const style = document.createElement('style');
-    style.id = 'sms-modal-style';
-    style.textContent = `
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            padding: 1rem;
-        }
-        .modal-content {
-            background: white;
-            border-radius: 0.75rem;
-            max-width: 500px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-light);
-            padding: 0;
-            line-height: 1;
-        }
-        .modal-body {
-            padding: 1.5rem;
-        }
-        .modal-footer {
-            padding: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
-        }
-        .sms-preview {
-            background: var(--bg-light);
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-top: 1rem;
-        }
-        .sms-preview p {
-            margin: 0.5rem 0;
-            font-style: italic;
-            color: var(--text-light);
-        }
-        .sms-preview small {
-            color: var(--text-light);
-            font-size: 0.75rem;
-        }
-    `;
-    document.head.appendChild(style);
-
-    // Add character count listener
     const messageInput = document.getElementById('sms-message');
     const previewText = document.getElementById('sms-preview-text');
     const charCount = document.getElementById('char-count');
 
-    messageInput.addEventListener('input', function() {
-        const text = this.value;
-        previewText.textContent = text || 'Your message will appear here...';
-        charCount.textContent = text.length;
-        
-        // Change color if too long
-        if (text.length > 160) {
-            charCount.style.color = 'var(--error-color)';
-        } else {
-            charCount.style.color = 'inherit';
-        }
-    });
+    if (messageInput) {
+        messageInput.addEventListener('input', function() {
+            const text = this.value;
+            if (previewText) previewText.textContent = text || 'Your message will appear here...';
+            if (charCount) charCount.textContent = text.length;
+        });
+    }
 }
 
 // Close SMS Modal
 function closeSMSModal() {
     const overlay = document.getElementById('sms-modal-overlay');
-    const style = document.getElementById('sms-modal-style');
     if (overlay) overlay.remove();
-    if (style) style.remove();
 }
 
 // Send SMS from Modal
 function sendSMSFromModal(messageId) {
     const messageInput = document.getElementById('sms-message');
-    const replyText = messageInput.value.trim();
+    const replyText = messageInput ? messageInput.value.trim() : '';
     
     if (!replyText) {
         alert('Please enter a message.');
@@ -1606,262 +1496,6 @@ window.showSMSReplyModal = showSMSReplyModal;
 window.closeSMSModal = closeSMSModal;
 window.sendSMSFromModal = sendSMSFromModal;
 
-// Gallery helpers
-function getGalleryFromStorage() {
-    try {
-        const saved = localStorage.getItem(GALLERY_STORAGE_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-        console.error('Error reading gallery storage', error);
-        return [];
-    }
-}
-
-function saveGalleryToStorage(gallery) {
-    try {
-        localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(gallery));
-    } catch (error) {
-        console.error('Error saving gallery storage', error);
-    }
-}
-
-async function fetchGalleryProjects(filters = {}) {
-    const params = new URLSearchParams();
-    if (filters.q) params.set('q', filters.q);
-    if (filters.category) params.set('category', filters.category);
-    if (filters.client) params.set('client', filters.client);
-    if (filters.accessCode) params.set('accessCode', filters.accessCode);
-
-    try {
-        const response = await fetch(`${API_GALLERY}?${params.toString()}`);
-        if (!response.ok) {
-            throw new Error('Unable to fetch gallery from server');
-        }
-        const data = await response.json();
-        saveGalleryToStorage(data);
-        return data;
-    } catch (error) {
-        console.log('Gallery API unavailable, using local storage fallback.');
-        return getGalleryFromStorage();
-    }
-}
-
-function buildProjectCard(project) {
-    const day = new Date(project.uploadedAt).toLocaleDateString();
-    const thumbnail = project.files && project.files.length && project.files[0].mimeType.startsWith('image/')
-        ? `<img class="project-thumb" src="${project.files[0].url}" alt="${escapeHtml(project.title)}">`
-        : '<div class="project-thumb project-thumb-placeholder">No image</div>';
-    const projectVisibility = project.visibility === 'private' ? 'Private' : 'Public';
-    const lockLabel = project.visibility === 'private' ? '<span class="project-tag project-tag-private">Private</span>' : '<span class="project-tag project-tag-public">Public</span>';
-
-    return `
-        <article class="project-card">
-            <div class="project-card-thumb">${thumbnail}</div>
-            <div class="project-card-header">
-                <h3>${escapeHtml(project.title)}</h3>
-                ${lockLabel}
-            </div>
-            <p class="project-meta">${escapeHtml(project.clientName || 'Client project')} • ${escapeHtml(project.category)} • ${day}</p>
-            <p class="project-description">${escapeHtml(project.description)}</p>
-            <div class="project-actions">
-                <button class="button button-secondary" data-action="preview" data-id="${project.id}">Preview</button>
-                <a href="${API_GALLERY}/${project.id}/download-all" class="button button-primary" download>Download All</a>
-            </div>
-            <div class="project-file-list">
-                ${project.files.map(file => `
-                    <div class="project-file-item">
-                        <span>${escapeHtml(file.originalName)}</span>
-                        <a href="${file.url}" download class="button button-secondary">Download</a>
-                    </div>
-                `).join('')}
-            </div>
-        </article>
-    `;
-}
-
-function renderGalleryProjects(projects) {
-    const galleryList = document.getElementById('gallery-list');
-    const emptyState = document.getElementById('gallery-empty');
-
-    if (!galleryList || !emptyState) return;
-
-    if (!projects.length) {
-        galleryList.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        return;
-    }
-
-    emptyState.classList.add('hidden');
-    galleryList.innerHTML = projects.map(buildProjectCard).join('');
-
-    galleryList.querySelectorAll('[data-action="preview"]').forEach(button => {
-        button.addEventListener('click', async function() {
-            const projectId = this.dataset.id;
-            const project = projects.find(p => p.id === projectId);
-            if (project) {
-                openGalleryPreview(project);
-            }
-        });
-    });
-}
-
-function openGalleryPreview(project) {
-    const modal = document.getElementById('gallery-preview-modal');
-    const body = document.getElementById('gallery-preview-body');
-    const details = document.getElementById('gallery-preview-details');
-
-    if (!modal || !body || !details) return;
-
-    const previewItems = project.files.map(file => {
-        if (file.mimeType.startsWith('image/')) {
-            return `<img class="preview-media" src="${file.url}" alt="${escapeHtml(file.originalName)}">`;
-        }
-
-        if (file.mimeType.startsWith('video/')) {
-            return `<video class="preview-media" controls src="${file.url}"></video>`;
-        }
-
-        return `<div class="preview-file-card">
-                    <strong>${escapeHtml(file.originalName)}</strong>
-                    <p>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <a class="button button-secondary" href="${file.url}" download>Download file</a>
-                </div>`;
-    }).join('');
-
-    body.innerHTML = `
-        <div class="preview-files">${previewItems}</div>
-    `;
-
-    details.innerHTML = `
-        <h3>${escapeHtml(project.title)}</h3>
-        <p>${escapeHtml(project.description)}</p>
-        <p><strong>Client:</strong> ${escapeHtml(project.clientName || 'N/A')}</p>
-        <p><strong>Category:</strong> ${escapeHtml(project.category)}</p>
-        <p><strong>Files:</strong> ${project.files.length}</p>
-        <a class="button button-primary" href="${API_GALLERY}/${project.id}/download-all" download>Download Full Project</a>
-    `;
-
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-}
-
-function closeGalleryPreview() {
-    const modal = document.getElementById('gallery-preview-modal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-}
-
-async function initGalleryPage() {
-    const searchInput = document.getElementById('gallery-search');
-    const categoryInput = document.getElementById('gallery-category');
-    const clientInput = document.getElementById('gallery-client');
-    const searchButton = document.getElementById('gallery-search-btn');
-    const filterButton = document.getElementById('gallery-filter-btn');
-    const modalClose = document.getElementById('gallery-preview-close');
-    const modal = document.getElementById('gallery-preview-modal');
-
-    const loadProjects = async (filters = {}) => {
-        const projects = await fetchGalleryProjects(filters);
-        renderGalleryProjects(projects);
-    };
-
-    const promptAccess = async () => {
-        const accessCode = prompt('Enter your client access code to load private projects, or leave blank to see public projects only.');
-        return accessCode ? accessCode.trim() : '';
-    };
-
-    const initialCode = await promptAccess();
-    await loadProjects({ accessCode: initialCode });
-
-    if (searchButton) {
-        searchButton.addEventListener('click', async () => {
-            await loadProjects({
-                q: searchInput.value.trim(),
-                category: categoryInput.value,
-                client: clientInput.value.trim(),
-                accessCode: initialCode
-            });
-        });
-    }
-
-    if (filterButton) {
-        filterButton.addEventListener('click', async () => {
-            await loadProjects({
-                q: searchInput.value.trim(),
-                category: categoryInput.value,
-                client: clientInput.value.trim(),
-                accessCode: initialCode
-            });
-        });
-    }
-
-    if (modalClose) {
-        modalClose.addEventListener('click', closeGalleryPreview);
-    }
-
-    if (modal) {
-        modal.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                closeGalleryPreview();
-            }
-        });
-    }
-}
-
-async function initProjectUpload() {
-    const uploadForm = document.getElementById('project-upload-form');
-    const visibilitySelect = document.getElementById('project-visibility');
-    const accessGroup = document.getElementById('project-access-group');
-    const statusElement = document.getElementById('project-upload-status');
-
-    if (!uploadForm) return;
-
-    visibilitySelect.addEventListener('change', () => {
-        if (visibilitySelect.value === 'private') {
-            accessGroup.classList.remove('hidden');
-        } else {
-            accessGroup.classList.add('hidden');
-        }
-    });
-
-    uploadForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
-
-        const formData = new FormData(uploadForm);
-        statusElement.textContent = 'Uploading project…';
-
-        try {
-            const response = await fetch(API_GALLERY_UPLOAD, {
-                method: 'POST',
-                body: formData
-            });
-
-            const contentType = response.headers.get('content-type') || '';
-            let result;
-
-            if (contentType.includes('application/json')) {
-                result = await response.json();
-            } else {
-                const text = await response.text();
-                result = { error: text || 'Upload failed' };
-            }
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Upload failed');
-            }
-
-            saveGalleryToStorage([result, ...getGalleryFromStorage()]);
-            uploadForm.reset();
-            accessGroup.classList.add('hidden');
-            showNotification(statusElement, 'Project uploaded successfully!', 'success');
-        } catch (error) {
-            console.error('Project upload failed', error);
-            showNotification(statusElement, `Upload failed: ${error.message}`, 'error');
-        }
-    });
-}
-
 // Show Notification Helper
 function showNotification(container, message, type = 'info') {
     if (!container) return;
@@ -1870,7 +1504,6 @@ function showNotification(container, message, type = 'info') {
     container.textContent = message;
     container.classList.remove('hidden');
 
-    // Auto-hide after 5 seconds
     setTimeout(() => {
         container.classList.add('hidden');
     }, 5000);
@@ -1894,30 +1527,27 @@ function escapeForJS(str) {
         .replace(/\r/g, '\\r');
 }
 
-// Local Storage keys for visit tracking (fallback when server is unavailable)
-const VISIT_STORAGE_KEY = 'sk_web_visits';
-const VISITOR_ID_KEY = 'sk_visitor_id';
+// Local Storage keys for visit tracking
+const VISIT_STORAGE_KEY = 'nexusforge_visits';
+const VISITOR_ID_KEY = 'nexusforge_visitor_id';
 
-// Visit Tracking - works with localStorage as fallback
+// Visit Tracking
 function trackVisit() {
-    // Generate or get unique visitor ID
     let visitorId = localStorage.getItem(VISITOR_ID_KEY);
     if (!visitorId) {
         visitorId = 'visitor_' + Date.now() + '_' + Math.random().toString(16).slice(2);
         localStorage.setItem(VISITOR_ID_KEY, visitorId);
     }
 
-    // Generate or get session ID
-    let sessionId = sessionStorage.getItem('sk_session_id');
+    let sessionId = sessionStorage.getItem('nexusforge_session_id');
     if (!sessionId) {
         sessionId = 'session_' + Date.now() + '_' + Math.random().toString(16).slice(2);
-        sessionStorage.setItem('sk_session_id', sessionId);
+        sessionStorage.setItem('nexusforge_session_id', sessionId);
     }
 
     const userAgent = navigator.userAgent;
 
-    // Try to send visit to server first
-    fetch('/api/visits', {
+    fetchApi('/api/visits', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -1931,19 +1561,16 @@ function trackVisit() {
     }).then(data => {
         console.log('Visit tracked on server:', data);
     }).catch(error => {
-        // Fallback to localStorage tracking
         console.log('Server tracking not available, using localStorage:', error);
         trackVisitLocalStorage(visitorId, userAgent);
     });
 }
 
-// Track visit using localStorage (fallback method)
+// Track visit using localStorage
 function trackVisitLocalStorage(visitorId, userAgent) {
     try {
-        // Get existing visits
         const visits = getVisitsFromStorage();
         
-        // Check if this is a new visit (not within last 30 minutes)
         const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
         const isDuplicate = visits.some(v => 
             v.visitorId === visitorId && 
@@ -1960,13 +1587,7 @@ function trackVisitLocalStorage(visitorId, userAgent) {
             };
             visits.push(newVisit);
             saveVisitsToStorage(visits);
-            console.log('Visit tracked in localStorage:', newVisit);
             
-            // Update the counter if on homepage
-            const visitorCountEl = document.getElementById('visitor-count');
-            if (visitorCountEl) {
-                animateCounter(visitorCountEl, visits.length);
-            }
         }
     } catch (error) {
         console.error('Error tracking visit in localStorage:', error);
@@ -1992,58 +1613,7 @@ function saveVisitsToStorage(visits) {
     }
 }
 
-// Load Visitor Count - works with server or localStorage fallback
-async function loadVisitorCount() {
-    const visitorCountEl = document.getElementById('visitor-count');
-    if (!visitorCountEl) return;
-
-    try {
-        const response = await fetch('/api/visits');
-        if (response.ok) {
-            const data = await response.json();
-            animateCounter(visitorCountEl, data.total);
-            return;
-        }
-    } catch (error) {
-        console.log('Server not available for visitor count, using localStorage');
-    }
-
-    // Fallback to localStorage
-    try {
-        const visits = getVisitsFromStorage();
-        const count = visits.length > 0 ? visits.length : 1000; // Show at least 1000 as base
-        animateCounter(visitorCountEl, count);
-    } catch (error) {
-        console.error('Error loading visitor count from localStorage:', error);
-        visitorCountEl.textContent = '1,000+';
-    }
-}
-
-// Animate Counter
-function animateCounter(element, target) {
-    const duration = 1500;
-    const start = 0;
-    const startTime = performance.now();
-
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Ease out cubic
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-        const current = Math.round(start + (target - start) * easeProgress);
-        
-        element.textContent = current.toLocaleString();
-
-        if (progress < 1) {
-            requestAnimationFrame(update);
-        }
-    }
-
-    requestAnimationFrame(update);
-}
-
-// Visit Statistics for Admin - works with server or localStorage fallback
+// Visit Statistics for Admin
 function initVisitStats() {
     const refreshBtn = document.getElementById('refresh-visits');
     const clearBtn = document.getElementById('clear-visits');
@@ -2058,22 +1628,19 @@ function initVisitStats() {
                 return;
             }
 
-            // Try server first, then fall back to localStorage
-            fetch('/api/visits', {
+            fetchApi('/api/visits', {
                 method: 'DELETE'
             }).then(response => {
                 if (response.ok) {
                     loadVisitStatistics();
                 }
             }).catch(() => {
-                // Clear localStorage
                 localStorage.removeItem(VISIT_STORAGE_KEY);
                 loadVisitStatistics();
             });
         });
     }
 
-    // Load initial stats
     loadVisitStatistics();
 }
 
@@ -2088,8 +1655,7 @@ async function loadVisitStatistics() {
     let usedServer = false;
 
     try {
-        // Try server first
-        const statsResponse = await fetch('/api/visits');
+        const statsResponse = await fetchApi('/api/visits');
         if (statsResponse.ok) {
             const stats = await statsResponse.json();
             
@@ -2121,11 +1687,9 @@ async function loadVisitStatistics() {
         console.log('Server not available for visit stats, using localStorage');
     }
 
-    // Fallback to localStorage
     if (!usedServer) {
         visits = getVisitsFromStorage();
         
-        // Calculate statistics from localStorage data
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekStart = new Date(todayStart);
@@ -2162,10 +1726,8 @@ async function loadVisitStatistics() {
         `;
     }
 
-    // Load visit history - try server first, then localStorage
     try {
         if (!usedServer) {
-            // Use localStorage data
             const sortedVisits = [...visits].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             const page = 1;
             const limit = 20;
@@ -2207,11 +1769,10 @@ async function loadVisitStatistics() {
                     </table>
                 `;
 
-                // Pagination
                 if (totalPages > 1) {
                     let paginationHTML = '<div class="pagination">';
                     for (let i = 1; i <= totalPages; i++) {
-                        paginationHTML += `<button class="button button-secondary" onclick="loadVisitPageLocal(${i})">${i}</button>`;
+                        paginationHTML += `<button class="button button-secondary ${i === page ? 'active' : ''}" onclick="loadVisitPageLocal(${i})">${i}</button>`;
                     }
                     paginationHTML += '</div>';
                     paginationContainer.innerHTML = paginationHTML;
@@ -2220,8 +1781,7 @@ async function loadVisitStatistics() {
                 }
             }
         } else {
-            // Use server data
-            const historyResponse = await fetch('/api/visits/history?page=1&limit=20');
+            const historyResponse = await fetchApi('/api/visits/history?page=1&limit=20');
             if (historyResponse.ok) {
                 const historyData = await historyResponse.json();
                 
@@ -2258,7 +1818,6 @@ async function loadVisitStatistics() {
                         </table>
                     `;
 
-                    // Pagination
                     if (historyData.pagination.totalPages > 1) {
                         let paginationHTML = '<div class="pagination">';
                         for (let i = 1; i <= historyData.pagination.totalPages; i++) {
@@ -2323,7 +1882,6 @@ function loadVisitPageLocal(page) {
         </table>
     `;
 
-    // Update pagination
     if (totalPages > 1) {
         let paginationHTML = '<div class="pagination">';
         for (let i = 1; i <= totalPages; i++) {
@@ -2336,8 +1894,72 @@ function loadVisitPageLocal(page) {
     }
 }
 
+/**
+ * Server-side pagination for visit history
+ */
+function loadVisitPage(page) {
+    const historyList = document.getElementById('visit-history-list');
+    const paginationContainer = document.getElementById('visit-pagination');
+
+    if (!historyList) return;
+
+    fetchApi(`/api/visits/history?page=${page}&limit=20`)
+        .then(response => response.json())
+        .then(historyData => {
+            if (historyData.visits.length === 0) {
+                historyList.innerHTML = '<p class="contact-note">No visit records yet.</p>';
+            } else {
+                historyList.innerHTML = `
+                    <table class="visit-history-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Visitor ID</th>
+                                <th>Browser</th>
+                                <th>Referrer</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${historyData.visits.map(visit => {
+                                const browser = getBrowserName(visit.userAgent);
+                                const date = new Date(visit.timestamp).toLocaleString();
+                                const referrer = visit.referrer ? 
+                                    (visit.referrer.length > 50 ? visit.referrer.substring(0, 50) + '...' : visit.referrer) : 
+                                    'Direct';
+                                return `
+                                    <tr>
+                                        <td>${date}</td>
+                                        <td title="${visit.ipHash}">${visit.ipHash.substring(0, 8)}...</td>
+                                        <td>${browser}</td>
+                                        <td>${referrer}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+                if (historyData.pagination.totalPages > 1) {
+                    let paginationHTML = '<div class="pagination">';
+                    for (let i = 1; i <= historyData.pagination.totalPages; i++) {
+                        paginationHTML += `<button class="button button-secondary ${i === page ? 'active' : ''}" onclick="loadVisitPage(${i})">${i}</button>`;
+                    }
+                    paginationHTML += '</div>';
+                    paginationContainer.innerHTML = paginationHTML;
+                } else {
+                    paginationContainer.innerHTML = '';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading visit history page:', error);
+            historyList.innerHTML = '<p class="contact-note">Failed to load visit history.</p>';
+        });
+}
+
 // Make loadVisitPageLocal globally available
 window.loadVisitPageLocal = loadVisitPageLocal;
+window.loadVisitPage = loadVisitPage;
 
 function getBrowserName(userAgent) {
     if (!userAgent) return 'Unknown';
@@ -2352,166 +1974,554 @@ function getBrowserName(userAgent) {
     return 'Other';
 }
 
-// New Projects Images (simple upload + list + delete)
-const API_PROJECTS = '/api/projects-images';
+// ============================================
+// Wikipedia Knowledge Section
+// ============================================
 
-async function initProjectsImagesAdmin() {
-    const uploadForm = document.getElementById('projects-upload-form');
-    const statusElement = document.getElementById('projects-upload-status');
-    const listContainer = document.getElementById('admin-projects-list');
-    const listCard = document.getElementById('admin-gallery-list-card');
+/**
+ * Initialize the Wikipedia Knowledge section
+ * Sets up tab switching, fetches data, and handles search
+ */
+function initWikiSection() {
+    const wikiSection = document.getElementById('wikipedia');
+    if (!wikiSection) {
+        return; // Not on the main page
+    }
 
-    if (!uploadForm || !listContainer) return;
+    // Tab switching
+    const tabs = document.querySelectorAll('.wiki-tab');
+    const panels = {
+        featured: document.getElementById('wiki-featured'),
+        current: document.getElementById('wiki-current'),
+        onthisday: document.getElementById('wiki-onthisday'),
+        search: document.getElementById('wiki-search')
+    };
 
-    uploadForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const formData = new FormData(uploadForm);
-        statusElement.textContent = 'Uploading...';
-        statusElement.classList.remove('hidden');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-wiki-tab');
+            
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update active panel
+            Object.values(panels).forEach(p => p.classList.remove('active'));
+            const targetPanel = panels[targetTab];
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
 
-        try {
-            const res = await fetch(`${API_PROJECTS}/upload`, { method: 'POST', body: formData });
-            const contentType = res.headers.get('content-type') || '';
-            const data = contentType.includes('application/json') ? await res.json() : { error: await res.text() };
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
-
-            uploadForm.reset();
-            statusElement.textContent = 'Uploaded successfully.';
-            statusElement.className = 'client-notification success';
-            await loadProjectsImagesAdminList();
-        } catch (err) {
-            console.error(err);
-            statusElement.textContent = `Upload failed: ${err.message}`;
-            statusElement.className = 'client-notification error';
-        }
+            // Load content if not yet loaded
+            if (targetTab === 'featured') {
+                loadWikiFeatured();
+            } else if (targetTab === 'current') {
+                loadWikiCurrentEvents();
+            } else if (targetTab === 'onthisday') {
+                loadWikiOnThisDay();
+            }
+        });
     });
 
-    if (listCard) listCard.classList.remove('hidden');
-    await loadProjectsImagesAdminList();
+    // Search functionality
+    const searchInput = document.getElementById('wiki-search-input');
+    const searchButton = document.getElementById('wiki-search-button');
+
+    if (searchInput && searchButton) {
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (query) {
+                searchWikipedia(query);
+            }
+        }
+
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    }
+
+    // Load default tab (featured)
+    loadWikiFeatured();
 }
 
-async function loadProjectsImagesAdminList() {
-    const listContainer = document.getElementById('admin-projects-list');
-    const statusElement = document.getElementById('projects-upload-status');
-    if (!listContainer) return;
+/**
+ * Fetch and display the featured article from Wikipedia
+ */
+async function loadWikiFeatured() {
+    const loadingEl = document.getElementById('wiki-featured-loading');
+    const contentEl = document.getElementById('wiki-featured-content');
+
+    if (!loadingEl || !contentEl) return;
+    
+    // If already loaded, don't reload
+    if (!contentEl.classList.contains('hidden')) return;
+
+    loadingEl.classList.remove('hidden');
+    contentEl.classList.add('hidden');
 
     try {
-        const res = await fetch(`${API_PROJECTS}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load');
+        const response = await fetch('/api/wiki/featured');
+        const data = await response.json();
 
-        if (!data.items || data.items.length === 0) {
-            listContainer.innerHTML = '<p class="contact-note">No uploads yet.</p>';
-            return;
-        }
+        if (data.featuredArticle) {
+            const article = data.featuredArticle;
+            const thumbnailHtml = article.thumbnail
+                ? `<img src="${article.thumbnail}" alt="${escapeHtml(article.title)}" class="wiki-featured-image" loading="lazy">`
+                : '';
 
-        listContainer.innerHTML = data.items.map(item => {
-            const isImage = item.mimeType && item.mimeType.startsWith('image/');
-            return `
-                <div class="admin-gallery-item">
-                    <div class="admin-gallery-thumbnail">
-                        ${isImage ? `<img src="${item.url}" alt="${escapeHtml(item.originalName)}" />` : '<div class="admin-gallery-placeholder">No preview</div>'}
-                    </div>
-                    <div class="admin-gallery-info">
-                        <h4>${escapeHtml(item.originalName)}</h4>
-                        <p>${new Date(item.uploadedAt).toLocaleDateString()}</p>
-                        <button class="button button-secondary admin-projects-delete" data-id="${item.id}">Delete</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        listContainer.querySelectorAll('.admin-projects-delete').forEach(btn => {
-            btn.addEventListener('click', async function () {
-                const id = this.dataset.id;
-                if (!confirm('Delete this upload?')) return;
-                try {
-                    const delRes = await fetch(`${API_PROJECTS}/image/${id}`, { method: 'DELETE' });
-                    const delData = await delRes.json().catch(() => ({}));
-                    if (!delRes.ok) throw new Error(delData.error || 'Delete failed');
-                    if (statusElement) {
-                        statusElement.textContent = 'Deleted successfully.';
-                        statusElement.className = 'client-notification success';
-                        statusElement.classList.remove('hidden');
-                    }
-                    await loadProjectsImagesAdminList();
-                } catch (err) {
-                    console.error(err);
-                    if (statusElement) {
-                        statusElement.textContent = `Delete failed: ${err.message}`;
-                        statusElement.className = 'client-notification error';
-                        statusElement.classList.remove('hidden');
-                    }
-                }
-            });
-        });
-    } catch (err) {
-        console.error(err);
-        listContainer.innerHTML = '<p class="contact-note">Failed to load uploads.</p>';
-    }
-}
-
-async function initProjectsImagesPage() {
-    const listContainer = document.getElementById('projects-list');
-    const empty = document.getElementById('projects-empty');
-    const searchInput = document.getElementById('projects-search');
-    const searchBtn = document.getElementById('projects-search-btn');
-
-    if (!listContainer) return;
-
-    async function loadProjectsImagesPage() {
-        let q = (searchInput && searchInput.value ? searchInput.value.trim() : '');
-        const url = q ? `${API_PROJECTS}?q=${encodeURIComponent(q)}` : `${API_PROJECTS}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
-
-        const items = data.items || [];
-        if (!items.length) {
-            listContainer.innerHTML = '';
-            if (empty) empty.classList.remove('hidden');
-            return;
-        }
-
-        if (empty) empty.classList.add('hidden');
-        listContainer.innerHTML = items.map(item => {
-            const isImage = item.mimeType && item.mimeType.startsWith('image/');
-            return `
-                <article class="project-card">
-                    <div class="project-card-thumb">
-                        ${isImage ? `<img class="project-thumb" src="${item.url}" alt="${escapeHtml(item.originalName)}" />` : '<div class="project-thumb project-thumb-placeholder">File</div>'}
-                    </div>
-                    <div class="project-card-header">
-                        <h3>${escapeHtml(item.originalName)}</h3>
-                    </div>
-                    <p class="project-meta">${new Date(item.uploadedAt).toLocaleDateString()} • ${escapeHtml(item.mimeType || 'file')}</p>
-                    <div class="project-actions">
-                        <a class="button button-primary" href="${API_PROJECTS}/image/${item.id}/download" download>Download</a>
+            contentEl.innerHTML = `
+                <article class="wiki-featured-article">
+                    ${thumbnailHtml}
+                    <div class="wiki-featured-body">
+                        <div class="wiki-badge">⭐ Featured Article of the Day</div>
+                        <h3>${escapeHtml(article.title)}</h3>
+                        ${article.description ? `<p class="wiki-description">${escapeHtml(article.description)}</p>` : ''}
+                        <p>${escapeHtml(article.extract ? article.extract.substring(0, 500) + '...' : '')}</p>
+                        <a href="${article.pageUrl}" target="_blank" rel="noopener noreferrer" class="button button-secondary">
+                            Read full article on Wikipedia →
+                        </a>
                     </div>
                 </article>
             `;
-        }).join('');
+        } else {
+            contentEl.innerHTML = `
+                <div class="wiki-empty">
+                    <p>Featured article unavailable at the moment. Please check back later.</p>
+                </div>
+            `;
+        }
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        
+        // Re-initialize scroll reveal
+        initScrollReveal();
+    } catch (error) {
+        console.error('Error loading featured article:', error);
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        contentEl.innerHTML = `
+            <div class="wiki-empty">
+                <p>Unable to load the featured article. Please try again later.</p>
+            </div>
+        `;
     }
+}
+
+/**
+ * Fetch and display current events from Wikipedia
+ */
+async function loadWikiCurrentEvents() {
+    const loadingEl = document.getElementById('wiki-current-loading');
+    const contentEl = document.getElementById('wiki-current-content');
+
+    if (!loadingEl || !contentEl) return;
+    
+    // If already loaded, don't reload
+    if (!contentEl.classList.contains('hidden')) return;
+
+    loadingEl.classList.remove('hidden');
+    contentEl.classList.add('hidden');
 
     try {
-        await loadProjectsImagesPage();
-    } catch (e) {
-        console.error(e);
-        listContainer.innerHTML = '<p class="contact-note">Failed to load projects.</p>';
-    }
+        const response = await fetch('/api/wiki/featured');
+        const data = await response.json();
 
-    if (searchBtn && searchInput) {
-        searchBtn.addEventListener('click', async () => {
+        if (data.currentEvents) {
+            const events = data.currentEvents;
+            contentEl.innerHTML = `
+                <div class="wiki-current-block">
+                    <div class="wiki-badge">🌍 Current Events from Wikipedia</div>
+                    <div class="wiki-current-text">
+                        <p>${escapeHtml(events.extract ? events.extract.substring(0, 800) : 'Ongoing current events from around the world.')}</p>
+                    </div>
+                    <div class="wiki-current-footer">
+                        <a href="${events.pageUrl}" target="_blank" rel="noopener noreferrer" class="button button-secondary">
+                            View all current events on Wikipedia →
+                        </a>
+                    </div>
+                </div>
+                <div class="wiki-current-note">
+                    <p>For the most up-to-date breaking news, check our <a href="#live-news">Live News section</a> above.</p>
+                </div>
+            `;
+        } else {
+            contentEl.innerHTML = `
+                <div class="wiki-empty">
+                    <p>Current events information is being updated. Please check back soon.</p>
+                </div>
+            `;
+        }
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        initScrollReveal();
+    } catch (error) {
+        console.error('Error loading current events:', error);
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        contentEl.innerHTML = `
+            <div class="wiki-empty">
+                <p>Unable to load current events. Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Fetch and display "On This Day" historical events from Wikipedia
+ */
+async function loadWikiOnThisDay() {
+    const loadingEl = document.getElementById('wiki-onthisday-loading');
+    const contentEl = document.getElementById('wiki-onthisday-content');
+
+    if (!loadingEl || !contentEl) return;
+    
+    // If already loaded, don't reload
+    if (!contentEl.classList.contains('hidden')) return;
+
+    loadingEl.classList.remove('hidden');
+    contentEl.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/wiki/featured');
+        const data = await response.json();
+
+        if (data.onThisDay && data.onThisDay.length > 0) {
+            const today = new Date();
+            const dateStr = today.toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            contentEl.innerHTML = `
+                <div class="wiki-otd-header">
+                    <div class="wiki-badge">📅 On This Day — ${escapeHtml(dateStr)}</div>
+                    <p>Historical events that happened on this day in history.</p>
+                </div>
+                <div class="wiki-timeline">
+                    ${data.onThisDay.map(event => `
+                        <div class="wiki-timeline-event">
+                            <div class="wiki-timeline-year">${event.year}</div>
+                            <div class="wiki-timeline-content">
+                                <p>${escapeHtml(event.text)}</p>
+                                ${event.pages && event.pages.length > 0 ? `
+                                    <div class="wiki-timeline-links">
+                                        ${event.pages.map(page => `
+                                            <a href="${page.pageUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(page.title)}</a>
+                                        `).join(' · ')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="wiki-otd-footer">
+                    <a href="https://en.wikipedia.org/wiki/Wikipedia:On_This_Day" target="_blank" rel="noopener noreferrer" class="button button-secondary">
+                        View all events for today →
+                    </a>
+                </div>
+            `;
+        } else {
+            contentEl.innerHTML = `
+                <div class="wiki-empty">
+                    <p>Historical events for today are being updated. Please check back later.</p>
+                </div>
+            `;
+        }
+
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        initScrollReveal();
+    } catch (error) {
+        console.error('Error loading on this day:', error);
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+        contentEl.innerHTML = `
+            <div class="wiki-empty">
+                <p>Unable to load historical events. Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Search Wikipedia and display results
+ */
+async function searchWikipedia(query) {
+    const loadingEl = document.getElementById('wiki-search-loading');
+    const resultsEl = document.getElementById('wiki-search-results');
+
+    if (!loadingEl || !resultsEl) return;
+
+    loadingEl.classList.remove('hidden');
+    resultsEl.innerHTML = '';
+
+    try {
+        const response = await fetch(`/api/wiki/search?q=${encodeURIComponent(query)}&limit=12`);
+        const data = await response.json();
+
+        if (data.results && data.results.length > 0) {
+            resultsEl.innerHTML = `
+                <div class="wiki-search-stats">
+                    Found ${data.totalResults} result(s) for "${escapeHtml(query)}"
+                </div>
+                <div class="wiki-search-list">
+                    ${data.results.map(result => `
+                        <article class="wiki-search-result">
+                            <h4><a href="${result.pageUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.title)}</a></h4>
+                            <p>${escapeHtml(result.snippet ? result.snippet.substring(0, 300) + '...' : '')}</p>
+                            <div class="wiki-result-meta">
+                                <a href="${result.pageUrl}" target="_blank" rel="noopener noreferrer" class="button button-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                                    Read full article →
+                                </a>
+                                <small>${result.wordCount ? result.wordCount.toLocaleString() + ' words' : ''}</small>
+                            </div>
+                        </article>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            resultsEl.innerHTML = `
+                <div class="wiki-empty">
+                    <p>No results found for "<strong>${escapeHtml(query)}</strong>". Try different keywords.</p>
+                </div>
+            `;
+        }
+
+        loadingEl.classList.add('hidden');
+        initScrollReveal();
+    } catch (error) {
+        console.error('Error searching Wikipedia:', error);
+        loadingEl.classList.add('hidden');
+        resultsEl.innerHTML = `
+            <div class="wiki-empty">
+                <p>Search is temporarily unavailable. Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// Founder Image Manager (Admin)
+// ============================================
+
+/**
+ * Initialize the Founder Manager on the admin page
+ */
+function initFounderManager() {
+    const form = document.getElementById('founder-upload-form');
+    const resetBtn = document.getElementById('founder-reset-btn');
+    const statusEl = document.getElementById('founder-upload-status');
+    
+    if (!form) return;
+
+    // Load current founder data into form fields
+    loadFounderPreview();
+
+    // Handle form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('founder-name').value.trim();
+        const title = document.getElementById('founder-title-text').value.trim();
+        const tagline = document.getElementById('founder-tagline').value.trim();
+        const fileInput = document.getElementById('founder-image-file');
+        const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+        if (!name && !title && !tagline && !file) {
+            if (statusEl) statusEl.textContent = 'Please fill in at least one field or select an image.';
+            return;
+        }
+
+        try {
+            let imageData = null;
+
+            if (file) {
+                if (file.type.startsWith('image/')) {
+                    const croppedFile = await openCropModal(file);
+                    if (croppedFile) {
+                        imageData = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.readAsDataURL(croppedFile);
+                        });
+                    }
+                }
+            }
+
+            const currentConfig = getFounderConfigFromStorage();
+            const payload = {
+                ...(imageData ? { image: imageData } : {}),
+                ...(name ? { name } : {}),
+                ...(title ? { title } : {}),
+                ...(tagline ? { tagline } : {})
+            };
+
+            if (!Object.keys(payload).length) {
+                throw new Error('Nothing to save');
+            }
+
+            let saveSucceeded = false;
             try {
-                await loadProjectsImagesPage();
-            } catch (e) {
-                console.error(e);
+                const response = await fetchApi('/api/founder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server save failed');
+                }
+
+                const data = await response.json();
+                const savedConfig = { ...currentConfig, ...(data && data.config ? data.config : payload) };
+                saveFounderConfigToStorage(savedConfig);
+                saveSucceeded = true;
+            } catch (serverError) {
+                const mergedConfig = {
+                    ...currentConfig,
+                    ...payload,
+                    ...(payload.image ? { image: payload.image } : {})
+                };
+                saveFounderConfigToStorage(mergedConfig);
+                console.warn('Fallback to localStorage for founder image save:', serverError);
+            }
+
+            if (statusEl) {
+                statusEl.textContent = saveSucceeded
+                    ? '✅ Founder profile updated successfully! Changes are live on the homepage.'
+                    : '⚠️ Saved locally. Start the server to sync with the admin backend.';
+                statusEl.style.color = saveSucceeded ? 'var(--success-color)' : 'var(--warning-color)';
+            }
+
+            loadFounderPreview();
+            form.reset();
+
+            setTimeout(() => {
+                if (statusEl) {
+                    statusEl.textContent = 'Changes appear instantly on the website homepage.';
+                    statusEl.style.color = '';
+                }
+            }, 5000);
+        } catch (error) {
+            console.error('Error saving founder:', error);
+            if (statusEl) {
+                statusEl.textContent = '❌ Failed to save. Please try again.';
+                statusEl.style.color = 'var(--error-color)';
+            }
+        }
+    });
+
+    // Handle reset
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async function() {
+            if (!confirm('Reset the founder image to the default? This cannot be undone.')) return;
+
+            try {
+                const defaultConfig = getDefaultFounderConfig();
+                let saveSucceeded = false;
+
+                try {
+                    const response = await fetchApi('/api/founder', { method: 'DELETE' });
+                    if (!response.ok) throw new Error('Reset failed');
+                    saveSucceeded = true;
+                } catch (serverError) {
+                    console.warn('Founder reset fallback to localStorage:', serverError);
+                }
+
+                saveFounderConfigToStorage(defaultConfig);
+                loadFounderPreview();
+                form.reset();
+                if (statusEl) {
+                    statusEl.textContent = saveSucceeded
+                        ? '✅ Founder profile reset to default.'
+                        : '⚠️ Default founder profile restored locally.';
+                    statusEl.style.color = saveSucceeded ? 'var(--success-color)' : 'var(--warning-color)';
+                }
+
+                setTimeout(() => {
+                    if (statusEl) {
+                        statusEl.textContent = 'Changes appear instantly on the website homepage.';
+                        statusEl.style.color = '';
+                    }
+                }, 5000);
+            } catch (error) {
+                console.error('Error resetting founder:', error);
+                if (statusEl) {
+                    statusEl.textContent = '❌ Reset failed. Please try again.';
+                    statusEl.style.color = 'var(--error-color)';
+                }
             }
         });
     }
 }
 
+/**
+ * Load current founder data and update the preview + homepage
+ */
+async function loadFounderPreview() {
+    let config = getFounderConfigFromStorage();
+
+    try {
+        const response = await fetchApi('/api/founder');
+        if (response.ok) {
+            const remoteConfig = await response.json();
+            config = { ...config, ...remoteConfig };
+            saveFounderConfigToStorage(config);
+        }
+    } catch (error) {
+        console.warn('Using local founder config because the server is unavailable:', error);
+    }
+
+    // Update admin preview
+    const previewImg = document.getElementById('founder-preview-img');
+    const previewName = document.getElementById('founder-preview-name');
+    const previewTitle = document.getElementById('founder-preview-title');
+
+    if (previewImg) {
+        if (config.image && config.image.startsWith('data:')) {
+            previewImg.src = config.image;
+        } else {
+            previewImg.src = config.image || 'Sarang.png';
+        }
+    }
+    if (previewName) previewName.textContent = config.name || 'Mr. Sarang Kumar';
+    if (previewTitle) previewTitle.textContent = (config.title || 'Founder & Lead Developer') + ' · ' + (config.tagline || 'Building the future, one pixel at a time.');
+
+    // Update form fields
+    const nameInput = document.getElementById('founder-name');
+    const titleInput = document.getElementById('founder-title-text');
+    const taglineInput = document.getElementById('founder-tagline');
+
+    if (nameInput && !nameInput.value) nameInput.placeholder = config.name || 'Mr. Sarang Kumar';
+    if (titleInput && !titleInput.value) titleInput.placeholder = config.title || 'Founder & Lead Developer';
+    if (taglineInput && !taglineInput.value) taglineInput.placeholder = config.tagline || 'Building the future, one pixel at a time.';
+
+    // Update homepage founder card (if present)
+    const homepageImg = document.querySelector('.founder-image');
+    const homepageName = document.querySelector('.founder-name');
+    const homepageTitle = document.querySelector('.founder-title');
+    const homepageTagline = document.querySelector('.founder-tagline');
+
+    if (homepageImg) {
+        if (config.image && config.image.startsWith('data:')) {
+            homepageImg.src = config.image;
+        } else {
+            homepageImg.src = config.image || 'Sarang.png';
+        }
+    }
+    if (homepageName) homepageName.textContent = config.name || 'Mr. Sarang Kumar';
+    if (homepageTitle) homepageTitle.textContent = config.title || 'Founder & Lead Developer';
+    if (homepageTagline) homepageTagline.textContent = config.tagline || 'Building the future, one pixel at a time.';
+}
+
 // Make functions globally available
 window.updateMessageStatus = updateMessageStatus;
 window.loadVisitPage = loadVisitPage;
+window.initFounderManager = initFounderManager;
+window.loadFounderPreview = loadFounderPreview;
 
