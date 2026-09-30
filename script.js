@@ -336,6 +336,43 @@ function initScrollReveal() {
 }
 
 // ============================================
+// Donation Modal
+// ============================================
+function initDonationModal() {
+    const donateBtn = document.getElementById('donate-btn');
+    const modal = document.getElementById('donation-modal');
+    if (!donateBtn || !modal) return;
+
+    donateBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    });
+
+    const closeBtn = document.getElementById('donation-modal-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    }
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+}
+
+// ============================================
 // Typing Animation
 // ============================================
 function initTypingAnimation() {
