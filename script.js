@@ -15,6 +15,12 @@ const CLOUD_API_BASE = (typeof window !== 'undefined' && window.NEXUSFORGE_CF_AP
     ? String(window.NEXUSFORGE_CF_API_BASE).replace(/\/$/, '')
     : '';
 const USE_LOCAL_STORAGE = true; // Keep local fallback until the worker is fully deployed
+const SUPABASE_URL = (typeof window !== 'undefined' && window.SUPABASE_URL)
+    ? String(window.SUPABASE_URL).trim().replace(/\/$/, '')
+    : '';
+const SUPABASE_ANON_KEY = (typeof window !== 'undefined' && window.SUPABASE_ANON_KEY)
+    ? String(window.SUPABASE_ANON_KEY).trim()
+    : '';
 
 function resolveApiUrl(path) {
     if (!path) return path;
@@ -58,6 +64,49 @@ async function fetchApi(path, options = {}) {
     }
 }
 
+function getSupabaseClient() {
+    if (typeof window === 'undefined' || !window.supabase) {
+        return null;
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        return null;
+    }
+
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+async function uploadProjectMediaToSupabase(file) {
+    const client = getSupabaseClient();
+    if (!client || !file) {
+        return null;
+    }
+
+    try {
+        const safeFileName = String(file.name || 'upload')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-zA-Z0-9._-]/g, '');
+        const storagePath = `advertisements/${Date.now()}-${Math.random().toString(16).slice(2)}-${safeFileName}`;
+
+        const { error } = await client.storage.from('advertisements').upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || 'application/octet-stream'
+        });
+
+        if (error) {
+            console.warn('Supabase upload failed:', error);
+            return null;
+        }
+
+        const { data } = client.storage.from('advertisements').getPublicUrl(storagePath);
+        return data?.publicUrl || null;
+    } catch (error) {
+        console.warn('Supabase upload error:', error);
+        return null;
+    }
+}
+
 function normalizeLoginValue(value) {
     return String(value ?? '').trim().toLowerCase();
 }
@@ -80,7 +129,7 @@ function isValidAdminLogin(username, password) {
 
 function saveAdminSession() {
     try {
-        localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
     } catch (error) {
         console.warn('Unable to save admin session state', error);
     }
@@ -88,7 +137,7 @@ function saveAdminSession() {
 
 function clearAdminSession() {
     try {
-        localStorage.removeItem(ADMIN_SESSION_KEY);
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
     } catch (error) {
         console.warn('Unable to clear admin session state', error);
     }
@@ -160,20 +209,20 @@ function getDefaultFounderConfig() {
 
 function getFounderConfigFromStorage() {
     try {
-        const raw = localStorage.getItem(FOUNDER_CONFIG_KEY);
+        const raw = sessionStorage.getItem(FOUNDER_CONFIG_KEY);
         if (!raw) return getDefaultFounderConfig();
         return { ...getDefaultFounderConfig(), ...JSON.parse(raw) };
     } catch (error) {
-        console.error('Error reading founder config from localStorage:', error);
+        console.error('Error reading founder config from sessionStorage:', error);
         return getDefaultFounderConfig();
     }
 }
 
 function saveFounderConfigToStorage(config) {
     try {
-        localStorage.setItem(FOUNDER_CONFIG_KEY, JSON.stringify(config));
+        sessionStorage.setItem(FOUNDER_CONFIG_KEY, JSON.stringify(config));
     } catch (error) {
-        console.error('Error saving founder config to localStorage:', error);
+        console.error('Error saving founder config to sessionStorage:', error);
     }
 }
 
@@ -425,37 +474,37 @@ function initBackToTop() {
 // Local Storage Helper Functions
 function getMessagesFromStorage() {
     try {
-        const messages = localStorage.getItem(STORAGE_KEY);
+        const messages = sessionStorage.getItem(STORAGE_KEY);
         return messages ? JSON.parse(messages) : [];
     } catch (e) {
-        console.error('Error reading from localStorage:', e);
+        console.error('Error reading from sessionStorage:', e);
         return [];
     }
 }
 
 function saveMessagesToStorage(messages) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch (e) {
-        console.error('Error saving to localStorage:', e);
+        console.error('Error saving to sessionStorage:', e);
     }
 }
 
 function getProjectsFromStorage() {
     try {
-        const projects = localStorage.getItem(PROJECT_GALLERY_KEY);
+        const projects = sessionStorage.getItem(PROJECT_GALLERY_KEY);
         return projects ? JSON.parse(projects) : [];
     } catch (e) {
-        console.error('Error reading project gallery from localStorage:', e);
+        console.error('Error reading project gallery from sessionStorage:', e);
         return [];
     }
 }
 
 function saveProjectsToStorage(projects) {
     try {
-        localStorage.setItem(PROJECT_GALLERY_KEY, JSON.stringify(projects));
+        sessionStorage.setItem(PROJECT_GALLERY_KEY, JSON.stringify(projects));
     } catch (e) {
-        console.error('Error saving project gallery to localStorage:', e);
+        console.error('Error saving project gallery to sessionStorage:', e);
     }
 }
 
@@ -496,12 +545,14 @@ function initProjectGallery() {
     }
 
     function renderProjects(projects) {
-        if (!projects.length) {
-            galleryGrid.innerHTML = '<div class="project-empty">No project media uploaded yet. Check back soon for a polished showcase.</div>';
+        const visibleProjects = (projects || []).slice(0, 6);
+
+        if (!visibleProjects.length) {
+            galleryGrid.innerHTML = '<div class="project-empty">No advertisement uploaded yet. Add media from admin to fill this section.</div>';
             return;
         }
 
-        galleryGrid.innerHTML = projects.map((project) => {
+        galleryGrid.innerHTML = visibleProjects.map((project) => {
             const isVideo = project.fileType && project.fileType.startsWith('video/');
             const preview = isVideo
                 ? `<video controls preload="metadata" src="${project.dataUrl}"></video>`
@@ -599,6 +650,14 @@ function initAdminGalleryManager() {
 
         const projectId = deleteButton.getAttribute('data-delete-id');
         if (!projectId) {
+            return;
+        }
+
+        const project = getProjectsFromStorage().find((item) => item.id === projectId);
+        const projectName = project && project.title ? project.title : 'this advertisement';
+        const confirmed = window.confirm(`Are you sure you want to delete ${projectName}?`);
+
+        if (!confirmed) {
             return;
         }
 
@@ -800,12 +859,19 @@ function initProjectUploadForm() {
                 });
 
                 try {
+                    let uploadedUrl = null;
+                    try {
+                        uploadedUrl = await uploadProjectMediaToSupabase(file);
+                    } catch (supabaseError) {
+                        console.warn('Supabase upload fallback triggered:', supabaseError);
+                    }
+
                     const payload = {
                         title,
                         description,
                         fileName: file.name,
                         fileType: file.type,
-                        dataUrl
+                        dataUrl: uploadedUrl || dataUrl
                     };
 
                     const response = await fetchApi('/api/projects', {
@@ -1005,7 +1071,7 @@ function initContactForm() {
                     usedServer = true;
                 }
             } catch (serverError) {
-                console.log('Server not available, using localStorage');
+                console.log('Server not available, using sessionStorage');
             }
 
             if (!usedServer) {
@@ -1095,7 +1161,7 @@ function initStatusCheck() {
                     usedServer = true;
                 }
             } catch (e) {
-                console.log('Server not available, checking localStorage');
+                console.log('Server not available, checking sessionStorage');
             }
 
             if (!usedServer) {
@@ -1175,7 +1241,7 @@ function showAdminDashboard() {
 }
 
 function restoreAdminSession() {
-    const isLoggedIn = localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+    const isLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
     if (!isLoggedIn) return;
 
     showAdminDashboard();
@@ -1237,10 +1303,10 @@ function initAdminInbox() {
                         return;
                     }
                 } catch (e) {
-                    // Server not available, use localStorage
+                    // Server not available, use sessionStorage
                 }
 
-                localStorage.removeItem(STORAGE_KEY);
+                sessionStorage.removeItem(STORAGE_KEY);
                 loadAdminMessages();
             } catch (error) {
                 console.error('Error:', error);
@@ -1268,7 +1334,7 @@ async function loadAdminMessages() {
                 usedServer = true;
             }
         } catch (e) {
-            console.log('Server not available, using localStorage');
+            console.log('Server not available, using sessionStorage');
         }
 
         if (!usedServer) {
@@ -1360,7 +1426,7 @@ async function updateMessageStatus(messageId, status) {
                 return;
             }
         } catch (e) {
-            // Server not available, use localStorage
+            // Server not available, use sessionStorage
         }
 
         const messages = getMessagesFromStorage();
@@ -1403,7 +1469,7 @@ async function sendSMSReply(messageId, replyText) {
                 usedServer = true;
             }
         } catch (e) {
-            console.log('Server not available, using localStorage for SMS');
+            console.log('Server not available, using sessionStorage for SMS');
             messages = getMessagesFromStorage();
         }
 
@@ -1570,10 +1636,10 @@ const VISITOR_ID_KEY = 'nexusforge_visitor_id';
 
 // Visit Tracking
 function trackVisit() {
-    let visitorId = localStorage.getItem(VISITOR_ID_KEY);
+    let visitorId = sessionStorage.getItem(VISITOR_ID_KEY);
     if (!visitorId) {
         visitorId = 'visitor_' + Date.now() + '_' + Math.random().toString(16).slice(2);
-        localStorage.setItem(VISITOR_ID_KEY, visitorId);
+        sessionStorage.setItem(VISITOR_ID_KEY, visitorId);
     }
 
     let sessionId = sessionStorage.getItem('nexusforge_session_id');
@@ -1598,13 +1664,13 @@ function trackVisit() {
     }).then(data => {
         console.log('Visit tracked on server:', data);
     }).catch(error => {
-        console.log('Server tracking not available, using localStorage:', error);
-        trackVisitLocalStorage(visitorId, userAgent);
+        console.log('Server tracking not available, using sessionStorage:', error);
+        trackVisitSessionStorage(visitorId, userAgent);
     });
 }
 
-// Track visit using localStorage
-function trackVisitLocalStorage(visitorId, userAgent) {
+// Track visit using sessionStorage
+function trackVisitSessionStorage(visitorId, userAgent) {
     try {
         const visits = getVisitsFromStorage();
         
@@ -1627,26 +1693,26 @@ function trackVisitLocalStorage(visitorId, userAgent) {
             
         }
     } catch (error) {
-        console.error('Error tracking visit in localStorage:', error);
+        console.error('Error tracking visit in sessionStorage:', error);
     }
 }
 
 // Local Storage helpers for visits
 function getVisitsFromStorage() {
     try {
-        const visits = localStorage.getItem(VISIT_STORAGE_KEY);
+        const visits = sessionStorage.getItem(VISIT_STORAGE_KEY);
         return visits ? JSON.parse(visits) : [];
     } catch (e) {
-        console.error('Error reading visits from localStorage:', e);
+        console.error('Error reading visits from sessionStorage:', e);
         return [];
     }
 }
 
 function saveVisitsToStorage(visits) {
     try {
-        localStorage.setItem(VISIT_STORAGE_KEY, JSON.stringify(visits));
+        sessionStorage.setItem(VISIT_STORAGE_KEY, JSON.stringify(visits));
     } catch (e) {
-        console.error('Error saving visits to localStorage:', e);
+        console.error('Error saving visits to sessionStorage:', e);
     }
 }
 
@@ -1672,7 +1738,7 @@ function initVisitStats() {
                     loadVisitStatistics();
                 }
             }).catch(() => {
-                localStorage.removeItem(VISIT_STORAGE_KEY);
+                sessionStorage.removeItem(VISIT_STORAGE_KEY);
                 loadVisitStatistics();
             });
         });
@@ -1721,7 +1787,7 @@ async function loadVisitStatistics() {
             usedServer = true;
         }
     } catch (error) {
-        console.log('Server not available for visit stats, using localStorage');
+        console.log('Server not available for visit stats, using sessionStorage');
     }
 
     if (!usedServer) {
@@ -2425,7 +2491,7 @@ function initFounderManager() {
                     ...(payload.image ? { image: payload.image } : {})
                 };
                 saveFounderConfigToStorage(mergedConfig);
-                console.warn('Fallback to localStorage for founder image save:', serverError);
+                console.warn('Fallback to sessionStorage for founder image save:', serverError);
             }
 
             if (statusEl) {
@@ -2467,7 +2533,7 @@ function initFounderManager() {
                     if (!response.ok) throw new Error('Reset failed');
                     saveSucceeded = true;
                 } catch (serverError) {
-                    console.warn('Founder reset fallback to localStorage:', serverError);
+                    console.warn('Founder reset fallback to sessionStorage:', serverError);
                 }
 
                 saveFounderConfigToStorage(defaultConfig);
