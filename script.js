@@ -283,6 +283,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize hero particles
     initHeroParticles();
 
+    // Initialize hero video sound toggle
+    initHeroVideoToggle();
+
     // Initialize donation modal
     initDonationModal();
 
@@ -359,6 +362,30 @@ function initHeroParticles() {
 
         container.appendChild(particle);
     }
+}
+
+function initHeroVideoToggle() {
+    const video = document.querySelector('.hero-video');
+    const toggleButton = document.querySelector('.video-toggle-btn');
+
+    if (!video || !toggleButton) return;
+
+    const toggleIcon = toggleButton.querySelector('.video-toggle-icon');
+    if (!toggleIcon) return;
+
+    const updateVideoToggle = () => {
+        const isMuted = video.muted;
+        toggleButton.setAttribute('aria-pressed', String(isMuted));
+        toggleButton.setAttribute('aria-label', isMuted ? 'Unmute video' : 'Mute video');
+        toggleIcon.textContent = isMuted ? '🔇' : '🔊';
+    };
+
+    updateVideoToggle();
+
+    toggleButton.addEventListener('click', () => {
+        video.muted = !video.muted;
+        updateVideoToggle();
+    });
 }
 
 // ============================================
