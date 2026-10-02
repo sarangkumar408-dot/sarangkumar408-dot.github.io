@@ -47,7 +47,7 @@
                             <input id="admin-password" type="password" placeholder="Password" required>
                         </div>
                         <button type="submit" class="button button-primary">Login</button>
-                        <p id="admin-status" class="contact-note">Default: admin / admin123</p>
+                        <p id="admin-status" class="contact-note"></p>
                     </form>
                 </div>
 
@@ -207,6 +207,14 @@
     <!-- Cropper.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+
+    <!-- Supabase client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+        window.SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    </script>
+
     <script src="script.js"></script>
 </body>
 </html>

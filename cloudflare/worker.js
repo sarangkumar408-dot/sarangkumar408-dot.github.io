@@ -43,6 +43,38 @@ async function writeJson(env, key, value) {
   await env.APP_KV.put(key, JSON.stringify(value));
 }
 
+async function storeProjectMedia(env, dataUrl, fileName, fileType) {
+  if (!dataUrl || !dataUrl.startsWith('data:') || !env.MEDIA) {
+    return { url: dataUrl || '', key: '' };
+  }
+
+  try {
+    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+    if (!match) {
+      return { url: dataUrl, key: '' };
+    }
+
+    const contentType = match[1] || fileType || 'application/octet-stream';
+    const safeName = String(fileName || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `projects/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+    const binary = Uint8Array.from(atob(match[2]), (char) => char.charCodeAt(0));
+
+    await env.MEDIA.put(key, binary, {
+      httpMetadata: {
+        contentType
+      }
+    });
+
+    return {
+      url: `/media/${key}`,
+      key
+    };
+  } catch (error) {
+    console.warn('R2 media upload failed, keeping original data URL.', error);
+    return { url: dataUrl || '', key: '' };
+  }
+}
+
 async function readMessages(env) {
   return await readJson(env, 'nexusforge_messages', []);
 }
@@ -158,6 +190,25 @@ export default {
         }
       }
 
+      if (url.pathname.startsWith('/media/')) {
+        const key = decodeURIComponent(url.pathname.replace(/^\/media\//, ''));
+        if (!key || !env.MEDIA) {
+          return jsonResponse({ error: 'Media not found.' }, 404);
+        }
+
+        const object = await env.MEDIA.get(key);
+        if (!object) {
+          return jsonResponse({ error: 'Media not found.' }, 404);
+        }
+
+        return new Response(object.body, {
+          headers: {
+            'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+            'Cache-Control': 'public, max-age=31536000'
+          }
+        });
+      }
+
       if (url.pathname.startsWith('/api/projects')) {
         const projectId = url.pathname.split('/').pop();
 
@@ -168,13 +219,15 @@ export default {
         if (request.method === 'POST') {
           const body = await request.json().catch(() => ({}));
           const projects = await readProjects(env);
+          const media = await storeProjectMedia(env, body.dataUrl, body.fileName, body.fileType);
           const entry = {
             id: body.id || crypto.randomUUID(),
             title: body.title || 'Project',
             description: body.description || '',
             fileName: body.fileName || 'project',
             fileType: body.fileType || 'image/png',
-            dataUrl: body.dataUrl || ''
+            dataUrl: media.url || body.dataUrl || '',
+            mediaKey: media.key || ''
           };
           projects.push(entry);
           await writeProjects(env, projects);
@@ -183,7 +236,18 @@ export default {
 
         if (request.method === 'DELETE' && projectId && projectId !== 'projects') {
           const projects = await readProjects(env);
-          const filtered = projects.filter((item) => item.id !== projectId);
+          const filtered = [];
+
+          for (const item of projects) {
+            if (item.id === projectId) {
+              if (item.mediaKey && env.MEDIA) {
+                await env.MEDIA.delete(item.mediaKey);
+              }
+            } else {
+              filtered.push(item);
+            }
+          }
+
           await writeProjects(env, filtered);
           return jsonResponse({ success: true, projects: filtered });
         }
