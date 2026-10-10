@@ -45,6 +45,14 @@ This guide will help you deploy your NexusForge website to the internet so anyon
 
 ## 📋 Pre-Deployment Checklist
 
+### Create .env
+```bash
+PORT=3000
+NODE_ENV=production
+ADMIN_USERNAME=your_admin_user
+ADMIN_PASSWORD=your_secure Password
+```
+
 ### Create .gitignore
 ```
 node_modules/
@@ -52,6 +60,7 @@ data/
 .env
 *.log
 .DS_Store
+.vscode/
 ```
 
 ### Test Locally
@@ -65,6 +74,8 @@ Visit `http://localhost:3000`
 1. Change default admin password in production
 2. Enable HTTPS (auto with Vercel/Render)
 3. Use environment variables for sensitive data
+4. Keep admin cookies secure and httpOnly
+5. Use a real database for messages and analytics in production
 
 ## 📱 Post-Deployment Testing
 - Homepage loads with dark theme and animations
