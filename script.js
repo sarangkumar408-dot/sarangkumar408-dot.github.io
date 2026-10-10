@@ -1,10 +1,14 @@
 // NexusForge - Main JavaScript
 // Forge Your Digital Presence
 
-// Admin credentials (in production, this should be server-side)
+// Admin credentials. These are only a local fallback for development.
 const ADMIN_CREDENTIALS = {
-    username: 'admin',
-    password: 'admin123'
+    username: (typeof window !== 'undefined' && window.NEXUSFORGE_ADMIN_USERNAME)
+        ? String(window.NEXUSFORGE_ADMIN_USERNAME).trim()
+        : 'admin',
+    password: (typeof window !== 'undefined' && window.NEXUSFORGE_ADMIN_PASSWORD)
+        ? String(window.NEXUSFORGE_ADMIN_PASSWORD).trim()
+        : 'admin123'
 };
 const ADMIN_SESSION_KEY = 'nexusforge_admin_logged_in';
 
@@ -183,7 +187,7 @@ function hideAdminDashboard() {
     if (passwordInput) passwordInput.value = '';
 
     if (statusMessage) {
-        statusMessage.textContent = 'Default: admin / admin123';
+        statusMessage.textContent = 'Use your configured admin credentials.';
         statusMessage.style.color = '';
     }
 }
@@ -1063,15 +1067,51 @@ function initContactForm() {
 
     if (!form) return;
 
+    const hiddenRatingInput = document.getElementById('feedback-rating');
+    const starButtons = Array.from(document.querySelectorAll('.star-btn'));
+    const starHint = document.getElementById('star-rating-hint');
+
+    if (hiddenRatingInput && starButtons.length) {
+        const ratingLabels = ['', 'Poor', 'Average', 'Good', 'Very Good', 'Excellent'];
+
+        function updateStarDisplay(activeValue) {
+            starButtons.forEach((button, index) => {
+                const starValue = index + 1;
+                const isActive = starValue <= activeValue;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+
+            const label = activeValue ? ratingLabels[activeValue] : 'Click a star to rate your experience';
+            if (starHint) {
+                starHint.textContent = label;
+            }
+        }
+
+        starButtons.forEach((button) => {
+            const value = Number(button.dataset.value);
+
+            button.addEventListener('mouseenter', () => updateStarDisplay(value));
+            button.addEventListener('mouseleave', () => updateStarDisplay(Number(hiddenRatingInput.value || 0)));
+            button.addEventListener('click', () => {
+                hiddenRatingInput.value = String(value);
+                updateStarDisplay(value);
+            });
+        });
+
+        updateStarDisplay(Number(hiddenRatingInput.value || 0));
+    }
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const name = document.getElementById('feedback-name').value.trim();
         const contact = document.getElementById('feedback-contact').value.trim();
+        const rating = document.getElementById('feedback-rating')?.value || '';
         const message = document.getElementById('feedback-message').value.trim();
 
-        if (!name || !message) {
-            showNotification(clientNotification, 'Please fill in all required fields.', 'error');
+        if (!name || !rating || !message) {
+            showNotification(clientNotification, 'Please fill in your name, rating, and feedback.', 'error');
             return;
         }
 
@@ -1090,7 +1130,7 @@ function initContactForm() {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ name, contact, message })
+                    body: JSON.stringify({ name, contact, message, rating, source: 'feedback' })
                 });
 
                 if (response.ok) {
@@ -1108,6 +1148,8 @@ function initContactForm() {
                     name,
                     contact: contact || '',
                     message,
+                    rating,
+                    source: 'feedback',
                     status: 'pending',
                     responseMessage: 'Your request is pending and waiting for admin review.',
                     receivedAt: new Date().toISOString()
@@ -1142,6 +1184,8 @@ function initContactForm() {
                 name,
                 contact: contact || '',
                 message,
+                rating,
+                source: 'feedback',
                 status: 'pending',
                 responseMessage: 'Your request is pending and waiting for admin review.',
                 receivedAt: new Date().toISOString()
@@ -1267,7 +1311,23 @@ function showAdminDashboard() {
     loadFounderPreview();
 }
 
-function restoreAdminSession() {
+async function restoreAdminSession() {
+    try {
+        const response = await fetch('/api/admin/session', {
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.authenticated) {
+                showAdminDashboard();
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('Admin session check unavailable, falling back to local sessionStorage.', error);
+    }
+
     const isLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
     if (!isLoggedIn) return;
 
@@ -1283,7 +1343,16 @@ function initAdminLogin() {
     if (!loginForm) return;
 
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
+        logoutBtn.addEventListener('click', async function() {
+            try {
+                await fetch('/api/admin/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+            } catch (error) {
+                console.warn('Admin logout endpoint unavailable, continuing local logout.', error);
+            }
+
             logoutAdminSession();
             if (statusMessage) {
                 statusMessage.textContent = 'Logged out successfully.';
@@ -1292,18 +1361,37 @@ function initAdminLogin() {
         });
     }
 
-    loginForm.addEventListener('submit', function(e) {
+    loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const username = document.getElementById('admin-username').value;
         const password = document.getElementById('admin-password').value;
+
+        try {
+            const response = await fetch('/api/admin/login', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                saveAdminSession();
+                showAdminDashboard();
+                return;
+            }
+        } catch (error) {
+            console.warn('Admin login endpoint unavailable, falling back to local credential validation.', error);
+        }
 
         if (isValidAdminLogin(username, password)) {
             saveAdminSession();
             showAdminDashboard();
         } else {
             if (statusMessage) {
-                statusMessage.textContent = 'Invalid credentials. Try: admin / admin123';
+                statusMessage.textContent = 'Invalid credentials. Check your configured admin username and password.';
                 statusMessage.style.color = 'var(--error-color)';
             }
         }
@@ -1393,6 +1481,7 @@ async function loadAdminMessages() {
             messageList.innerHTML = messages.map(msg => {
                 const smsCount = msg.smsReplies ? msg.smsReplies.length : 0;
                 const hasContact = msg.contact ? true : false;
+                const ratingHtml = msg.rating ? `<div class="message-rating">⭐ Rating: ${escapeHtml(msg.rating)}/5</div>` : '';
                 
                 return `
                 <div class="admin-message" data-id="${msg.id}">
@@ -1407,6 +1496,7 @@ async function loadAdminMessages() {
                         </div>
                         <span class="message-status ${msg.status}">${msg.status}</span>
                     </div>
+                    ${ratingHtml}
                     <p>${escapeHtml(msg.message)}</p>
                     ${msg.smsReplies && msg.smsReplies.length > 0 ? `
                         <div class="sms-history">
@@ -1660,6 +1750,135 @@ function escapeForJS(str) {
 // Local Storage keys for visit tracking
 const VISIT_STORAGE_KEY = 'nexusforge_visits';
 const VISITOR_ID_KEY = 'nexusforge_visitor_id';
+const VISITOR_LOCATION_KEY = 'nexusforge_visitor_location';
+const VISITOR_LOCATION_PROMPT_KEY = 'nexusforge_location_prompt_shown';
+
+function getCurrentPagePath() {
+    const path = window.location.pathname || '/';
+    return path === '' ? '/' : path;
+}
+
+function getStoredVisitorLocation() {
+    try {
+        const raw = sessionStorage.getItem(VISITOR_LOCATION_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function saveStoredVisitorLocation(data) {
+    if (!data) return;
+    try {
+        sessionStorage.setItem(VISITOR_LOCATION_KEY, JSON.stringify(data));
+    } catch (error) {
+        console.warn('Unable to save visitor location consent state:', error);
+    }
+}
+
+function updateVisitorLocationTracking(locationPayload) {
+    const sessionId = sessionStorage.getItem('nexusforge_session_id');
+    const visitorId = sessionStorage.getItem(VISITOR_ID_KEY);
+    const payload = {
+        sessionId,
+        visitorId,
+        pageVisited: getCurrentPagePath(),
+        consentStatus: locationPayload?.consentStatus || 'not_requested',
+        locationMethod: locationPayload?.locationMethod || 'not_requested',
+        latitude: locationPayload?.latitude ?? null,
+        longitude: locationPayload?.longitude ?? null
+    };
+
+    if (!sessionId && !visitorId) return;
+
+    fetchApi('/api/visits/location', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    }).catch(() => {
+        const visits = getVisitsFromStorage();
+        const latestVisit = [...visits].reverse().find(v =>
+            (sessionId && v.sessionId === sessionId) || (visitorId && v.visitorId === visitorId)
+        );
+
+        if (latestVisit) {
+            latestVisit.pageVisited = payload.pageVisited;
+            latestVisit.consentStatus = payload.consentStatus;
+            latestVisit.locationMethod = payload.locationMethod;
+            latestVisit.latitude = payload.latitude;
+            latestVisit.longitude = payload.longitude;
+            latestVisit.location = (payload.latitude !== null && payload.longitude !== null)
+                ? { latitude: payload.latitude, longitude: payload.longitude }
+                : null;
+            saveVisitsToStorage(visits);
+        }
+    });
+}
+
+function requestLocationConsent() {
+    if (!('geolocation' in navigator)) {
+        return;
+    }
+
+    if (sessionStorage.getItem(VISITOR_LOCATION_PROMPT_KEY) === 'true') {
+        return;
+    }
+
+    const banner = document.getElementById('location-consent-banner');
+    if (!banner) {
+        return;
+    }
+
+    const allowBtn = document.getElementById('location-consent-allow');
+    const denyBtn = document.getElementById('location-consent-deny');
+    if (!allowBtn || !denyBtn) {
+        return;
+    }
+
+    sessionStorage.setItem(VISITOR_LOCATION_PROMPT_KEY, 'true');
+    banner.classList.remove('hidden');
+
+    allowBtn.onclick = () => {
+        banner.classList.add('hidden');
+        navigator.geolocation.getCurrentPosition((position) => {
+            const payload = {
+                consentStatus: 'granted',
+                locationMethod: 'browser_gps',
+                latitude: Number(position.coords.latitude),
+                longitude: Number(position.coords.longitude)
+            };
+            saveStoredVisitorLocation(payload);
+            updateVisitorLocationTracking(payload);
+        }, () => {
+            const payload = {
+                consentStatus: 'denied',
+                locationMethod: 'browser_gps',
+                latitude: null,
+                longitude: null
+            };
+            saveStoredVisitorLocation(payload);
+            updateVisitorLocationTracking(payload);
+        }, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 300000
+        });
+    };
+
+    denyBtn.onclick = () => {
+        banner.classList.add('hidden');
+        const payload = {
+            consentStatus: 'denied',
+            locationMethod: 'not_requested',
+            latitude: null,
+            longitude: null
+        };
+        saveStoredVisitorLocation(payload);
+        updateVisitorLocationTracking(payload);
+    };
+}
 
 // Visit Tracking
 function trackVisit() {
@@ -1676,13 +1895,24 @@ function trackVisit() {
     }
 
     const userAgent = navigator.userAgent;
+    const storedLocation = getStoredVisitorLocation();
+    const pageVisited = getCurrentPagePath();
 
     fetchApi('/api/visits', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ sessionId, userAgent })
+        body: JSON.stringify({
+            sessionId,
+            visitorId,
+            userAgent,
+            pageVisited,
+            consentStatus: storedLocation?.consentStatus || 'not_requested',
+            locationMethod: storedLocation?.locationMethod || 'not_requested',
+            latitude: storedLocation?.latitude ?? null,
+            longitude: storedLocation?.longitude ?? null
+        })
     }).then(response => {
         if (response.ok) {
             return response.json();
@@ -1692,12 +1922,14 @@ function trackVisit() {
         console.log('Visit tracked on server:', data);
     }).catch(error => {
         console.log('Server tracking not available, using sessionStorage:', error);
-        trackVisitSessionStorage(visitorId, userAgent);
+        trackVisitSessionStorage(visitorId, userAgent, pageVisited, storedLocation);
     });
+
+    requestLocationConsent();
 }
 
 // Track visit using sessionStorage
-function trackVisitSessionStorage(visitorId, userAgent) {
+function trackVisitSessionStorage(visitorId, userAgent, pageVisited, storedLocation) {
     try {
         const visits = getVisitsFromStorage();
         
@@ -1713,11 +1945,18 @@ function trackVisitSessionStorage(visitorId, userAgent) {
                 timestamp: new Date().toISOString(),
                 visitorId: visitorId,
                 userAgent: userAgent,
-                referrer: document.referrer || 'Direct'
+                referrer: document.referrer || 'Direct',
+                pageVisited: pageVisited || '/',
+                consentStatus: storedLocation?.consentStatus || 'not_requested',
+                locationMethod: storedLocation?.locationMethod || 'not_requested',
+                latitude: storedLocation?.latitude ?? null,
+                longitude: storedLocation?.longitude ?? null,
+                location: (storedLocation?.latitude !== null && storedLocation?.longitude !== null)
+                    ? { latitude: storedLocation.latitude, longitude: storedLocation.longitude }
+                    : null
             };
             visits.push(newVisit);
             saveVisitsToStorage(visits);
-            
         }
     } catch (error) {
         console.error('Error tracking visit in sessionStorage:', error);
@@ -1874,6 +2113,9 @@ async function loadVisitStatistics() {
                             <tr>
                                 <th>Date & Time</th>
                                 <th>Visitor ID</th>
+                                <th>Page</th>
+                                <th>Location</th>
+                                <th>Consent</th>
                                 <th>Browser</th>
                                 <th>Referrer</th>
                             </tr>
@@ -1886,10 +2128,20 @@ async function loadVisitStatistics() {
                                     (visit.referrer.length > 50 ? visit.referrer.substring(0, 50) + '...' : visit.referrer) : 
                                     'Direct';
                                 const visitorId = visit.visitorId || visit.ipHash || 'unknown';
+                                const pageVisited = visit.pageVisited || '/';
+                                const latitude = visit.latitude ?? visit.location?.latitude ?? null;
+                                const longitude = visit.longitude ?? visit.location?.longitude ?? null;
+                                const locationText = (latitude !== null && longitude !== null)
+                                    ? `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`
+                                    : 'Not shared';
+                                const consentStatus = visit.consentStatus || 'Not requested';
                                 return `
                                     <tr>
                                         <td>${date}</td>
                                         <td title="${visitorId}">${visitorId.substring(0, 12)}...</td>
+                                        <td>${pageVisited}</td>
+                                        <td title="${locationText}">${locationText}</td>
+                                        <td>${consentStatus}</td>
                                         <td>${browser}</td>
                                         <td>${referrer}</td>
                                     </tr>
@@ -1987,6 +2239,9 @@ function loadVisitPageLocal(page) {
                 <tr>
                     <th>Date & Time</th>
                     <th>Visitor ID</th>
+                    <th>Page</th>
+                    <th>Location</th>
+                    <th>Consent</th>
                     <th>Browser</th>
                     <th>Referrer</th>
                 </tr>
@@ -1999,10 +2254,20 @@ function loadVisitPageLocal(page) {
                         (visit.referrer.length > 50 ? visit.referrer.substring(0, 50) + '...' : visit.referrer) : 
                         'Direct';
                     const visitorId = visit.visitorId || 'unknown';
+                    const pageVisited = visit.pageVisited || '/';
+                    const latitude = visit.latitude ?? visit.location?.latitude ?? null;
+                    const longitude = visit.longitude ?? visit.location?.longitude ?? null;
+                    const locationText = (latitude !== null && longitude !== null)
+                        ? `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`
+                        : 'Not shared';
+                    const consentStatus = visit.consentStatus || 'Not requested';
                     return `
                         <tr>
                             <td>${date}</td>
                             <td title="${visitorId}">${visitorId.substring(0, 12)}...</td>
+                            <td>${pageVisited}</td>
+                            <td title="${locationText}">${locationText}</td>
+                            <td>${consentStatus}</td>
                             <td>${browser}</td>
                             <td>${referrer}</td>
                         </tr>
@@ -2045,6 +2310,9 @@ function loadVisitPage(page) {
                             <tr>
                                 <th>Date & Time</th>
                                 <th>Visitor ID</th>
+                                <th>Page</th>
+                                <th>Location</th>
+                                <th>Consent</th>
                                 <th>Browser</th>
                                 <th>Referrer</th>
                             </tr>
@@ -2056,10 +2324,21 @@ function loadVisitPage(page) {
                                 const referrer = visit.referrer ? 
                                     (visit.referrer.length > 50 ? visit.referrer.substring(0, 50) + '...' : visit.referrer) : 
                                     'Direct';
+                                const visitorId = visit.visitorId || visit.ipHash || 'unknown';
+                                const pageVisited = visit.pageVisited || '/';
+                                const latitude = visit.latitude ?? visit.location?.latitude ?? null;
+                                const longitude = visit.longitude ?? visit.location?.longitude ?? null;
+                                const locationText = (latitude !== null && longitude !== null)
+                                    ? `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`
+                                    : 'Not shared';
+                                const consentStatus = visit.consentStatus || 'Not requested';
                                 return `
                                     <tr>
                                         <td>${date}</td>
-                                        <td title="${visit.ipHash}">${visit.ipHash.substring(0, 8)}...</td>
+                                        <td title="${visitorId}">${visitorId.substring(0, 8)}...</td>
+                                        <td>${pageVisited}</td>
+                                        <td title="${locationText}">${locationText}</td>
+                                        <td>${consentStatus}</td>
                                         <td>${browser}</td>
                                         <td>${referrer}</td>
                                     </tr>

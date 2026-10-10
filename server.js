@@ -1,10 +1,22 @@
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const { getAdminCredentials, isValidAdminLogin } = require('./lib/security');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const adminConfig = getAdminCredentials();
+
+if (adminConfig.usesDefaultCredentials) {
+  console.warn('Warning: using default admin credentials. Set ADMIN_USERNAME and ADMIN_PASSWORD in your .env file before production deployment.');
+}
+
 const dataDir = path.join(__dirname, 'data');
 const messagesFile = path.join(dataDir, 'messages.json');
 const visitsFile = path.join(dataDir, 'visits.json');
@@ -49,8 +61,48 @@ let newsCache = {};
 let wikiCache = {};
 const WIKI_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours (Wikipedia featured content changes daily)
 
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use(express.json({ limit: '50mb' }));
+app.use(cookieParser());
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' }
+}));
 app.use(express.static(path.join(__dirname)));
+
+const ADMIN_COOKIE_NAME = 'nexusforge_admin_session';
+const ADMIN_SESSION_TTL = 60 * 60 * 1000;
+
+function setAdminSessionCookie(res) {
+  res.cookie(ADMIN_COOKIE_NAME, 'authenticated', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: ADMIN_SESSION_TTL,
+    path: '/'
+  });
+}
+
+function clearAdminSessionCookie(res) {
+  res.clearCookie(ADMIN_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/'
+  });
+}
+
+function isAdminAuthenticated(req) {
+  return Boolean(req.cookies && req.cookies[ADMIN_COOKIE_NAME] === 'authenticated');
+}
 
 function decodeEntities(value) {
   return String(value || '')
@@ -234,13 +286,51 @@ function anonymizeIP(ip) {
 }
 
 // Check if visit is from same session (within last 30 minutes)
-function isDuplicateVisit(visits, sessionId, ipHash) {
+function isDuplicateVisit(visits, sessionId, ipHash, visitorId) {
   const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
   return visits.some(v => 
-    (v.sessionId === sessionId || v.ipHash === ipHash) && 
+    ((sessionId && v.sessionId === sessionId) || (visitorId && v.visitorId === visitorId) || v.ipHash === ipHash) && 
     new Date(v.timestamp).getTime() > thirtyMinutesAgo
   );
 }
+
+app.get('/api/admin/session', (req, res) => {
+  const { username, usesDefaultCredentials } = getAdminCredentials();
+  res.json({
+    authenticated: isAdminAuthenticated(req),
+    username,
+    usesDefaultCredentials
+  });
+});
+
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  if (!isValidAdminLogin(username, password)) {
+    return res.status(401).json({ error: 'Invalid admin credentials.' });
+  }
+
+  setAdminSessionCookie(res);
+  const { username: validUsername } = getAdminCredentials();
+  return res.json({ success: true, username: validUsername });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  clearAdminSessionCookie(res);
+  res.json({ success: true });
+});
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    app: 'nexusforge',
+    time: new Date().toISOString()
+  });
+});
 
 app.get('/api/messages', (req, res) => {
   const messages = readMessages();
@@ -253,7 +343,7 @@ app.get('/api/messages', (req, res) => {
 });
 
 app.post('/api/messages', (req, res) => {
-  const { name, contact, message } = req.body;
+  const { name, contact, message, rating } = req.body;
   if (!name || !message) {
     return res.status(400).json({ error: 'Name and message are required.' });
   }
@@ -264,6 +354,8 @@ app.post('/api/messages', (req, res) => {
     name,
     contact: contact || '',
     message,
+    rating: rating || '',
+    source: 'feedback',
     status: 'pending',
     responseMessage: 'Your request is pending and waiting for admin review.',
     receivedAt: new Date().toISOString()
@@ -385,30 +477,74 @@ app.get('/api/visits', (req, res) => {
 });
 
 app.post('/api/visits', (req, res) => {
-  const { sessionId, userAgent } = req.body;
+  const { sessionId, visitorId, userAgent, pageVisited, consentStatus, locationMethod, latitude, longitude } = req.body || {};
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
   const ipHash = anonymizeIP(ip);
   
   const visits = readVisits();
   
-  // Check for duplicate visits within 30 minutes
-  if (sessionId && isDuplicateVisit(visits, sessionId, ipHash)) {
+  if (sessionId && isDuplicateVisit(visits, sessionId, ipHash, visitorId)) {
     return res.json({ success: true, duplicate: true });
   }
+
+  const parsedLatitude = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : null;
+  const parsedLongitude = longitude !== undefined && longitude !== null && longitude !== '' ? Number(longitude) : null;
+  const hasCoordinates = Number.isFinite(parsedLatitude) && Number.isFinite(parsedLongitude);
   
   const newVisit = {
     id: Date.now().toString() + Math.random().toString(16).slice(2),
     timestamp: new Date().toISOString(),
     ipHash,
     sessionId: sessionId || null,
+    visitorId: visitorId || null,
     userAgent: userAgent || '',
-    referrer: req.get('Referrer') || ''
+    referrer: req.get('Referrer') || '',
+    pageVisited: pageVisited || '/',
+    consentStatus: consentStatus || 'not_requested',
+    locationMethod: locationMethod || 'not_requested',
+    latitude: hasCoordinates ? parsedLatitude : null,
+    longitude: hasCoordinates ? parsedLongitude : null,
+    location: hasCoordinates ? { latitude: parsedLatitude, longitude: parsedLongitude } : null
   };
   
   visits.push(newVisit);
   writeVisits(visits);
   
   res.json({ success: true, duplicate: false, visit: newVisit });
+});
+
+app.post('/api/visits/location', (req, res) => {
+  const { sessionId, visitorId, pageVisited, consentStatus, locationMethod, latitude, longitude } = req.body || {};
+
+  if (!sessionId && !visitorId) {
+    return res.status(400).json({ error: 'sessionId or visitorId is required.' });
+  }
+
+  const visits = readVisits();
+  const visit = [...visits].reverse().find(item =>
+    (sessionId && item.sessionId === sessionId) || (visitorId && item.visitorId === visitorId)
+  );
+
+  if (!visit) {
+    return res.status(404).json({ error: 'Visit record not found.' });
+  }
+
+  const parsedLatitude = latitude !== undefined && latitude !== null && latitude !== '' ? Number(latitude) : null;
+  const parsedLongitude = longitude !== undefined && longitude !== null && longitude !== '' ? Number(longitude) : null;
+  const hasCoordinates = Number.isFinite(parsedLatitude) && Number.isFinite(parsedLongitude);
+
+  visit.pageVisited = pageVisited || visit.pageVisited || '/';
+  visit.consentStatus = consentStatus || visit.consentStatus || 'not_requested';
+  visit.locationMethod = locationMethod || visit.locationMethod || 'not_requested';
+  visit.latitude = hasCoordinates ? parsedLatitude : visit.latitude || null;
+  visit.longitude = hasCoordinates ? parsedLongitude : visit.longitude || null;
+  visit.location = (visit.latitude !== null && visit.longitude !== null)
+    ? { latitude: visit.latitude, longitude: visit.longitude }
+    : null;
+
+  writeVisits(visits);
+
+  res.json({ success: true, visit });
 });
 
 app.get('/api/visits/history', (req, res) => {
