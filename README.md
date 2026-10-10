@@ -93,10 +93,18 @@ The website works without Node.js using browser localStorage.
    - Admin panel: http://localhost:3000/admin.html
 
 ### Default Admin Credentials
-- **Username**: `admin`
-- **Password**: `admin123`
+- **Development fallback**: `admin` / `admin123`
+- **Production**: set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in a `.env` file
 
-⚠️ **Security Note**: In production, change these credentials and implement proper server-side authentication!
+⚠️ **Security Note**: In production, never keep a live admin password in source code. Use environment variables and a secure cookie-based admin session.
+
+#### Example .env
+```bash
+PORT=3000
+NODE_ENV=production
+ADMIN_USERNAME=your_admin_user
+ADMIN_PASSWORD=your_secure_password
+```
 
 ## 📋 How to Use
 
